@@ -1,2 +1,4 @@
 # flutter-skills
-LLM skills for managing the Flutter open source project
+
+This repository contains LLM skills related to working with the
+[flutter/flutter](https://github.com/flutter/flutter) repository.
