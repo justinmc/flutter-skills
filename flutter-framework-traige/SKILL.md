@@ -32,9 +32,19 @@ If these are not found, alert the user.
 
 For each bullet point, load the URL linked to it and output a list of all issues
 or pull requests given at the URL. This may require navigating to subsequent
-pages in the GitHub UI. Each item in the list should be formatted like this:
+pages in the GitHub UI. Place this output into a markdown file with the name
+"output.md" in the current directory.
+
+Each item in the list should be formatted like this:
 
 ```
 <title, linked to the issue/PR>
 <a brief summary of the contents of the issue/PR>
 ```
+
+### 3. Add headings
+
+For each bullet point's list of issues/PRs, include a heading with the name of
+the bullet point linked to the URL found in the GitHub README. After this linked
+name, include the total number of issues/PRs found for that section in
+parenthesis.
