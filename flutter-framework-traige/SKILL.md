@@ -38,8 +38,10 @@ pages in the GitHub UI. Place this output into a markdown file with the name
 Each item in the list should be formatted like this:
 
 ```
-<title, linked to the issue/PR>
-<a brief summary of the contents of the issue/PR>
+ * <title, linked to the issue/PR>
+   * <author, linked to the author's GitHub profile>
+   * <date opened>
+   * <a brief summary of the contents of the issue/PR>
 ```
 
 ### 3. Add headings
