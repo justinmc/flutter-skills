@@ -41,6 +41,7 @@ Each item in the list should be formatted like this:
  * <title, linked to the issue/PR>
    * <author, linked to the author's GitHub profile>
    * <date opened>
+   * Status: <open, closed, or draft>
    * <a brief summary of the contents of the issue/PR>
 ```
 
