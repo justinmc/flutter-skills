@@ -35,7 +35,7 @@ use in the next step to load the issues and PRs.
 For each bullet point, load the URL linked to it and output a list of all issues
 or pull requests given at the URL. This may require navigating to subsequent
 pages in the GitHub UI. Place this output into a markdown file with the name
-"output.md" in the current directory.
+"output.md" in the "output" directory of this skill.
 
 Each item in the list should be formatted like this:
 
