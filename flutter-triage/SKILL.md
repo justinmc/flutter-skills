@@ -1,12 +1,12 @@
 ---
-name: flutter-framework-triage
-description: Use this skill to gather relevant PRs and issues for a specified team in the Flutter framework.
+name: flutter-triage
+description: Use this skill to gather relevant PRs and issues for a specified team in Flutter.
 ---
 
-# Flutter Framework Triage
+# Flutter Triage
 
 This skill guides the agent in locating relevant PRs and issues for a specified
-team in the Flutter framework and outputting them in a nicely formatted markdown file.
+team in Flutter and outputting them in a nicely formatted markdown file.
 
 ## Workflow
 
