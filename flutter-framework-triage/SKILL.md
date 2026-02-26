@@ -1,8 +1,6 @@
 ---
 name: flutter-framework-triage
-description:
-  Use this skill to gather relevant PRs and issues for the Flutter framework
-team.
+description: Use this skill to gather relevant PRs and issues for the Flutter framework team.
 ---
 
 # Flutter Framework Triage
