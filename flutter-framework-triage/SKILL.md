@@ -82,3 +82,8 @@ For each bullet point's list of issues/PRs, include a heading with the name of
 the bullet point linked to the URL found in the GitHub README. After this linked
 name, include the total number of issues/PRs found for that section in
 parentheses.
+
+Verify that the headings are correct. There should be 4 headings, each with the
+same titles as the bullet points in step 1 above. Each heading should contain a
+count that matches the number of items under it. If the headings are not
+correct, fix them.
