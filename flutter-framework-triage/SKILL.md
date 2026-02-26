@@ -54,9 +54,12 @@ The GitHub API paginates results. To get all items, you must follow the `Link` h
     `<https://api.github.com/search/issues?q=...&page=2>; rel="next"`
 3.  Extract the URL from within the angle brackets (`<>`).
 4.  Fetch this "next" URL and repeat the process until there is no `rel="next"` link in the `Link` header.
-5.  Combine the `items` array from all the fetched pages into a single list.
+5.  Combine the `items` array from all the fetched pages into a single list using the `scripts/combine_json.py` script.
 
-Parse this combined JSON to extract the required information for each issue/PR: `title`, `html_url`, `user.login` (author), `created_at` (date opened), and `state` (status).
+**Parsing and Formatting:**
+- Use the `scripts/parse_triage_readme.py` script to parse the triage README and extract the URLs.
+- Use the `scripts/parse_api_response.py` script to parse the JSON responses from the GitHub API.
+- For the "Framework-owned Package PR list", use the `scripts/filter_and_parse_packages_prs.py` script to filter and parse the results.
 
 **Generating Urgency and Summary:**
 
