@@ -2,7 +2,7 @@ import re
 import os
 import sys
 
-def parse_readme(file_path):
+def parse_readme_for_team(file_path, team_name):
     content = ''
     try:
         with open(file_path, 'r') as f:
@@ -11,52 +11,53 @@ def parse_readme(file_path):
         print(f"Error: {file_path} not found.", file=sys.stderr)
         return {}
 
-    framework_team_section_start_re = r'### Framework team \(`team-framework`\)'
-    framework_team_section_end_re = r'### \w+ team' # Find the next team section
+    # Construct a regex to find the section for the given team
+    team_section_start_re = re.compile(f'### {team_name} team \(`team-{team_name.lower().replace(" ", "-")}`\)', re.IGNORECASE)
+    
+    start_match = team_section_start_re.search(content)
 
-    p0_list_re = r'- \[P0 list]\((.*?)\)'
-    framework_pr_list_re = r'- \[Framework PR list]\((.*?)\)'
-    framework_owned_package_pr_list_re = r'- \[Framework-owned Package PR list]\((.*?)\)'
-    incoming_issue_list_re = r'- \[Incoming issue list]\((.*?)\)'
+    if not start_match:
+        # Fallback for simpler team headings
+        team_section_start_re = re.compile(f'### {team_name} team', re.IGNORECASE)
+        start_match = team_section_start_re.search(content)
 
-    start_match = re.search(framework_team_section_start_re, content)
+    if not start_match:
+        print(f"Error: Could not find section for '{team_name} team'.", file=sys.stderr)
+        return {}
 
+    start_index = start_match.end()
+    
+    # Find the next section to define the end of the current team's section
+    next_section_match = re.search(r'### \w+ team', content[start_index:])
+    if next_section_match:
+        end_index = start_index + next_section_match.start()
+        team_section = content[start_index:end_index]
+    else:
+        team_section = content[start_index:]
+
+    # Regex to find all markdown list items (bullet points with links)
+    list_item_re = re.compile(r'-\s+\[(.*?)\]\((.*?)\)')
+    
     urls = {}
-
-    if start_match:
-        start_index = start_match.start()
-        end_match = re.search(framework_team_section_end_re, content[start_index + 1:])
-        if end_match:
-            end_index = start_index + 1 + end_match.start()
-            framework_team_section = content[start_index:end_index]
-        else:
-            framework_team_section = content[start_index:]
-
-        p0_match = re.search(p0_list_re, framework_team_section)
-        if p0_match:
-            urls['P0 list'] = p0_match.group(1)
-
-        framework_pr_match = re.search(framework_pr_list_re, framework_team_section)
-        if framework_pr_match:
-            urls['Framework PR list'] = framework_pr_match.group(1)
-
-        framework_owned_package_pr_match = re.search(framework_owned_package_pr_list_re, framework_team_section)
-        if framework_owned_package_pr_match:
-            urls['Framework-owned Package PR list'] = framework_owned_package_pr_match.group(1)
-
-        incoming_issue_match = re.search(incoming_issue_list_re, framework_team_section)
-        if incoming_issue_match:
-            urls['Incoming issue list'] = incoming_issue_match.group(1)
+    for match in list_item_re.finditer(team_section):
+        list_name = match.group(1).strip()
+        url = match.group(2).strip()
+        urls[list_name] = url
     
     return urls
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python parse_triage_readme.py <readme_file>", file=sys.stderr)
+    if len(sys.argv) != 3:
+        print("Usage: python parse_triage_readme.py <readme_file> \"<team_name>\"", file=sys.stderr)
         sys.exit(1)
 
     readme_file = sys.argv[1]
-    urls = parse_readme(readme_file)
+    team_name = sys.argv[2]
+    
+    urls = parse_readme_for_team(readme_file, team_name)
 
-    for name, url in urls.items():
-        print(f'{name} URL: {url}')
+    if not urls:
+        print(f"No triage lists found for '{team_name} team'.")
+    else:
+        for name, url in urls.items():
+            print(f"{name}:{url}")
