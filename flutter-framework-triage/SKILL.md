@@ -47,7 +47,16 @@ To use the API, you need to convert the web URLs from the README into API URLs. 
 
 Use `curl` with the appropriate `Accept: application/vnd.github.v3+json` header to fetch the JSON data from the API URL. The response will be a JSON object containing a list of items.
 
-Parse this JSON to extract the required information for each issue/PR: `title`, `html_url`, `user.login` (author), `created_at` (date opened), and `state` (status).
+**Handling Pagination:**
+The GitHub API paginates results. To get all items, you must follow the `Link` header in the response.
+1.  Use `curl -i` to include the HTTP headers in the output.
+2.  Look for a `Link` header that contains `rel="next"`. It will look like this:
+    `<https://api.github.com/search/issues?q=...&page=2>; rel="next"`
+3.  Extract the URL from within the angle brackets (`<>`).
+4.  Fetch this "next" URL and repeat the process until there is no `rel="next"` link in the `Link` header.
+5.  Combine the `items` array from all the fetched pages into a single list.
+
+Parse this combined JSON to extract the required information for each issue/PR: `title`, `html_url`, `user.login` (author), `created_at` (date opened), and `state` (status).
 
 **Generating Urgency and Summary:**
 
