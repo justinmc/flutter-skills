@@ -30,12 +30,13 @@ def parse_github_json(file_path):
     return entries, total_count
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python parse_api_response.py <input_json_file> <output_section_title>", file=sys.stderr)
+    if len(sys.argv) != 4:
+        print("Usage: python parse_api_response.py <input_json_file> <output_section_title> <output_file_path>", file=sys.stderr)
         sys.exit(1)
 
     input_file = sys.argv[1]
     section_title = sys.argv[2]
+    output_file = sys.argv[3]
     
     entries, total_count = parse_github_json(input_file)
 
@@ -50,8 +51,8 @@ if __name__ == "__main__":
         output_content += f"   * {entry['summary']}\n"
     output_content += f"\n"
 
-    # Append to a common output file, could be passed as an argument if needed
-    with open('output.md', 'a') as f:
+    # Append to the specified output file
+    with open(output_file, 'a') as f:
         f.write(output_content)
 
-    print(f"Successfully processed {len(entries)} entries from {input_file} and appended to output.md")
+    print(f"Successfully processed {len(entries)} entries from {input_file} and appended to {output_file}")

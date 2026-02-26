@@ -30,7 +30,7 @@ For each list name and URL extracted in the previous step:
 2.  **Fetch Data:** Use `curl` with the `Accept: application/vnd.github.v3+json` header to fetch the JSON data. Handle pagination by following the `Link` header with `rel="next"` until all pages are fetched.
 3.  **Combine and Parse:**
     - Use the `scripts/combine_json.py` script to combine the `items` from all pages into a single JSON file.
-    - Use the `scripts/parse_api_response.py` script to parse the combined JSON file. This script will also format the output and append it to `output.md`.
+    - Use the `scripts/parse_api_response.py` script to parse the combined JSON file. This script will also format the output and append it to a specified output file. The script usage is `python parse_api_response.py <input_json_file> <output_section_title> <output_file_path>`. The output file path should be `flutter-triage/output/<team_name>.md`, where `<team_name>` is the lowercase version of the team name provided by the user.
 4.  **Section Heading:** The `parse_api_response.py` script takes the section title as an argument. Use the name of the list from the README as the title for each section.
 
 **Generating Urgency and Summary:**
@@ -38,4 +38,4 @@ For each list name and URL extracted in the previous step:
 - **Urgency:** Assign "High" if the issue/PR has a "P0" label. Otherwise, assign "Medium".
 - **Summary:** Use the title of the issue/PR as the summary.
 
-The final output should be a single `output.md` file in the current directory with a section for each triage list found in the README.
+The final output should be a single markdown file in the `flutter-triage/output/` directory, named after the team (e.g., `framework.md`). This file will contain a section for each triage list found in the README.
