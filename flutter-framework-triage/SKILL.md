@@ -25,8 +25,8 @@ Under the heading "### Framework team (`team-framework`)", there should be four 
 
 If these are not found, alert the user.
 
-If they are found, tell the user the URL is linked for each one, which you will
-use in the next step to load the issues and PRs.
+If they are found, tell the user the URL that is linked to each one, which you
+will use in the next step to load the issues and PRs.
 
 ### 2. Generate and output lists of PRs and issues via GitHub API
 
