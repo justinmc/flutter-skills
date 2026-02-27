@@ -14,7 +14,11 @@ def parse_github_json(file_path):
     total_count = data.get('total_count', 0)
 
     for item in data.get('items', []):
-        urgency = "High" if 'P0' in {label['name'] for label in item.get('labels', [])} else "Medium"
+        priority = "No Priority"
+        for label in item.get('labels', []):
+            if label.get('name', '').startswith('P'):
+                priority = label['name']
+                break
         
         entries.append({
             "title": item.get('title'),
@@ -23,7 +27,7 @@ def parse_github_json(file_path):
             "author_url": item.get('user', {}).get('html_url'),
             "date_opened": item.get('created_at'),
             "status": item.get('state'),
-            "urgency": urgency,
+            "priority": priority,
             "summary": item.get('title'),
         })
 
@@ -47,7 +51,7 @@ if __name__ == "__main__":
         output_content += f"   * [{entry['author']}]({entry['author_url']})\n"
         output_content += f"   * {entry['date_opened']}\n"
         output_content += f"   * Status: {entry['status']}\n"
-        output_content += f"   * Urgency: {entry['urgency']}\n"
+        output_content += f"   * Priority: {entry['priority']}\n"
         output_content += f"   * {entry['summary']}\n"
     output_content += f"\n"
 

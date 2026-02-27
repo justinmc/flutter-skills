@@ -33,9 +33,8 @@ For each list name and URL extracted in the previous step:
     - Use the `scripts/parse_api_response.py` script to parse the combined JSON file. This script will also format the output and append it to a specified output file. The script usage is `python parse_api_response.py <input_json_file> <output_section_title> <output_file_path>`. The output file path should be `flutter-triage/output/<team_name>.md`, where `<team_name>` is the lowercase version of the team name provided by the user.
 4.  **Section Heading:** The `parse_api_response.py` script takes the section title as an argument. Use the name of the list from the README as the title for each section.
 
-**Generating Urgency and Summary:**
+**Generating Summary:**
 
-- **Urgency:** Assign "High" if the issue/PR has a "P0" label. Otherwise, assign "Medium".
 - **Summary:** Use the title of the issue/PR as the summary.
 
 The final output should be a single markdown file in the `flutter-triage/output/` directory, named after the team (e.g., `framework.md`). This file will contain a section for each triage list found in the README.
