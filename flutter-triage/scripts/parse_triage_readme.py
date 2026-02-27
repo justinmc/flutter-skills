@@ -12,29 +12,24 @@ def parse_readme_for_team(file_path, team_name):
         return {}
 
     # Construct a regex to find the section for the given team
-    team_section_start_re = re.compile(f'### {team_name} team \(`team-{team_name.lower().replace(" ", "-")}`\)', re.IGNORECASE)
+    team_section_start_re = re.compile(f'## {team_name}', re.IGNORECASE)
     
     start_match = team_section_start_re.search(content)
 
     if not start_match:
-        # Fallback for simpler team headings
-        team_section_start_re = re.compile(f'### {team_name} team', re.IGNORECASE)
-        start_match = team_section_start_re.search(content)
-
-    if not start_match:
-        print(f"Error: Could not find section for '{team_name} team'.", file=sys.stderr)
+        print(f"Error: Could not find section for '{team_name}'.", file=sys.stderr)
         return {}
 
     start_index = start_match.end()
     
     # Find the next section to define the end of the current team's section
-    next_section_match = re.search(r'### .*? team', content[start_index:])
+    next_section_match = re.search(r'## ', content[start_index:])
     if next_section_match:
         end_index = start_index + next_section_match.start()
         team_section = content[start_index:end_index]
     else:
         team_section = content[start_index:]
-
+    team_section = team_section.strip()
     # Regex to find all markdown list items (bullet points with links)
     list_item_re = re.compile(r'-\s+\[(.*?)\]\((.*?)\)')
     
