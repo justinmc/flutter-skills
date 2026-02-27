@@ -8,6 +8,11 @@ description: Use this skill to gather relevant PRs and issues for a specified te
 This skill guides the agent in locating relevant PRs and issues for a specified
 team in Flutter and outputting them in a nicely formatted markdown file.
 
+## Prerequisites
+Before using this skill, ensure the following:
+1.  The `requests` python library is installed (`pip install requests`).
+2.  The `GITHUB_TOKEN` environment variable is set with a valid GitHub Personal Access Token with `repo` scope.
+
 ## Workflow
 
 ### 1. Ask for Team Name
@@ -30,11 +35,18 @@ For each list name and URL extracted in the previous step:
 2.  **Fetch Data:** Use `curl` with the `Accept: application/vnd.github.v3+json` header to fetch the JSON data. Handle pagination by following the `Link` header with `rel="next"` until all pages are fetched.
 3.  **Combine and Parse:**
     - Use the `scripts/combine_json.py` script to combine the `items` from all pages into a single JSON file.
-    - Use the `scripts/parse_api_response.py` script to parse the combined JSON file. This script will also format the output and append it to a specified output file. The script usage is `python parse_api_response.py <input_json_file> <output_section_title> <output_file_path>`. The output file path should be `flutter-triage/output/<team_name>.md`, where `<team_name>` is the lowercase version of the team name provided by the user.
-4.  **Section Heading:** The `parse_api_response.py` script takes the section title as an argument. Use the name of the list from the README as the title for each section.
+    - Use the `scripts/parse_api_response.py` script to parse the combined JSON file and fetch additional context (issue body and comments). This script will output a new JSON file with all the data. The script usage is `python parse_api_response.py <input_json_file> <output_json_file>`.
 
-**Generating Summary:**
+### 4. Summarize and Format Output
 
-- **Summary:** Use the title of the issue/PR as the summary.
+After running `parse_api_response.py`, the agent will have a JSON file containing all the necessary data. The agent will then:
+1. Read the JSON file.
+2. For each item, use the `context` field to generate a "Summary" and "Action Items".
+3. Format the final output into a markdown file.
 
-The final output should be a single markdown file in the `flutter-triage/output/` directory, named after the team (e.g., `framework.md`). This file will contain a section for each triage list found in the README.
+**Generated Triage Information:**
+
+- **Summary:** The agent will read the full context of the discussion from the `context` field and generate a concise summary.
+- **Action Items:** Based on the summary, the agent will determine and list the next steps required to make progress on the issue, with a focus on actions for the Flutter team and triagers.
+
+The final output should be a single markdown file in the `flutter-triage/output/` directory, named after the team (e.g., `framework.md`). This file will contain a section for each triage list found in the README, with the generated summary and action items for each issue/PR.
