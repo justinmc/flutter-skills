@@ -28,7 +28,7 @@ def parse_readme_for_team(file_path, team_name):
     start_index = start_match.end()
     
     # Find the next section to define the end of the current team's section
-    next_section_match = re.search(r'### \w+ team', content[start_index:])
+    next_section_match = re.search(r'### .*? team', content[start_index:])
     if next_section_match:
         end_index = start_index + next_section_match.start()
         team_section = content[start_index:end_index]
