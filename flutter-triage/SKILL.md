@@ -32,10 +32,14 @@ For each list name and URL extracted in the previous step:
     - **`https://github.com/`** becomes **`https://api.github.com/repos/`**.
     - The query parameters (`?q=...`) from the web URL should be used with the `search/issues` endpoint of the GitHub API.
     - **Example:** `https://github.com/flutter/flutter/issues?q=...` becomes `https://api.github.com/search/issues?q=repo:flutter/flutter...`
-2.  **Fetch Data:** Use `curl` with the `Accept: application/vnd.github.v3+json` header to fetch the JSON data. Handle pagination by following the `Link` header with `rel="next"` until all pages are fetched.
+2.  **Fetch Data with Pagination:**
+    - Create a temporary directory to store the paginated results for the current list.
+    - Use `curl -i` with the `Accept: application/vnd.github.v3+json` header to fetch the first page of JSON data. Save the output (including headers) to a file.
+    - Inspect the `Link` header in the output file. If there is a `rel="next"` link, extract the URL for the next page.
+    - Continue fetching pages until there are no more "next" links. Save each page's JSON response to a separate file in the temporary directory, named `page_1.json`, `page_2.json`, etc.
 3.  **Combine and Parse:**
-    - Use the `scripts/combine_json.py` script to combine the `items` from all pages into a single JSON file.
-    - Use the `scripts/parse_api_response.py` script to parse the combined JSON file and fetch additional context (issue body and comments). This script will output a new JSON file with all the data. The script usage is `python parse_api_response.py <input_json_file> <output_json_file>`.
+    - Use the `scripts/combine_json.py <input_directory> <output_file>` script to combine the `items` from all pages into a single JSON file. The `<input_directory>` should be the temporary directory you created in the previous step.
+    - Use the `scripts/parse_api_response.py <input_json_file> <output_json_file>` script to parse the combined JSON file and fetch additional context (issue body and comments). This script will output a new JSON file with all the data.
 
 ### 4. Summarize and Format Output
 
