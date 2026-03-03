@@ -53,4 +53,4 @@ After running `parse_api_response.py`, the agent will have a JSON file containin
 - **Summary:** The agent will read the full context of the discussion from the `context` field and generate a concise summary.
 - **Action Items:** Based on the summary, the agent will determine and list the next steps required to make progress on the issue, with a focus on actions for the Flutter team and triagers.
 
-The final output should be a single markdown file in the `flutter-triage/output/` directory, named after the team (e.g., `framework.md`). This file will contain a section for each triage list found in the README, with the generated summary and action items for each issue/PR.
+The final output should be a single markdown file in the `flutter-triage/output/` directory, named after the team and the date (e.g., `framework-20260303.md`). This file will contain a section for each triage list found in the README, with the generated summary and action items for each issue/PR. Include the date in the top heading of the file.
