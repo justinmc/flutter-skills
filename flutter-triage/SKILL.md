@@ -41,16 +41,11 @@ For each list name and URL extracted in the previous step:
     - Use the `scripts/combine_json.py <input_directory> <output_file>` script to combine the `items` from all pages into a single JSON file. The `<input_directory>` should be the temporary directory you created in the previous step.
     - Use the `scripts/parse_api_response.py <input_json_file> <output_json_file>` script to parse the combined JSON file and fetch additional context (issue body and comments). This script will output a new JSON file with all the data.
 
-### 4. Summarize and Format Output
+### 4. Combine all parsed JSON files
+After all the lists have been processed, use the `scripts/combine_all.py` script to combine all the parsed JSON files into a single file named `combined_triage.json` in the temporary directory.
 
-After running `parse_api_response.py`, the agent will have a JSON file containing all the necessary data. The agent will then:
-1. Read the JSON file.
-2. For each item, use the `context` field to generate a "Summary" and "Action Items".
-3. Format the final output into a markdown file.
+### 5. Summarize and Format Output
 
-**Generated Triage Information:**
+After running `combine_all.py`, the agent will have a single JSON file with all the data. The agent will then use the `scripts/generate_report.py` script to generate the final markdown report.
 
-- **Summary:** The agent will read the full context of the discussion from the `context` field and generate a concise summary.
-- **Action Items:** Based on the summary, the agent will determine and list the next steps required to make progress on the issue, with a focus on actions for the Flutter team and triagers.
-
-The final output should be a single markdown file in the `flutter-triage/output/` directory, named after the team and the date (e.g., `framework-20260303.md`). This file will contain a section for each triage list found in the README, with the generated summary and action items for each issue/PR. Include the date in the top heading of the file.
+The final output should be a single markdown file in the `flutter-triage/output/` directory, named after the team and the date (e.g., `framework-20260310.md`). This file will contain a section for each triage list found in the README, with the generated summary and action items for each issue/PR. Include the date in the top heading of the file.
