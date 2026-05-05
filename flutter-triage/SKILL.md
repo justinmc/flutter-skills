@@ -34,15 +34,15 @@ For each list name and URL extracted in the previous step:
     - **Example:** `https://github.com/flutter/flutter/issues?q=...` becomes `https://api.github.com/search/issues?q=repo:flutter/flutter...`
 2.  **Fetch Data with Pagination:**
     - Create a temporary directory to store the paginated results for the current list.
-    - Use `curl -i` with the `Accept: application/vnd.github.v3+json` header to fetch the first page of JSON data. Save the output (including headers) to a file.
+    - Use `curl -i` with the `Accept: application/vnd.github.v3+json` header to fetch the first page of JSON data. Save the output (including headers) to a `page_1.json` file in the `tmp` directory.
     - Inspect the `Link` header in the output file. If there is a `rel="next"` link, extract the URL for the next page.
-    - Continue fetching pages until there are no more "next" links. Save each page's JSON response to a separate file in the temporary directory, named `page_1.json`, `page_2.json`, etc.
+    - Continue fetching pages until there are no more "next" links. Save each page's JSON response to a separate file in the `tmp` directory, named `page_2.json`, `page_3.json`, etc.
 3.  **Combine and Parse:**
-    - Use the `scripts/combine_json.py <input_directory> <output_file>` script to combine the `items` from all pages into a single JSON file. The `<input_directory>` should be the temporary directory you created in the previous step.
-    - Use the `scripts/parse_api_response.py <input_json_file> <output_json_file>` script to parse the combined JSON file and fetch additional context (issue body and comments). This script will output a new JSON file with all the data.
+    - Use the `scripts/combine_json.py tmp/ <output_file>` script to combine the `items` from all pages into a single JSON file. Afterwards, this file should contain all items from all pages.
+    - Use the `scripts/parse_api_response.py <input_json_file> <output_json_file>` script to parse the combined JSON file and fetch additional context (issue body and comments). This script will output a new JSON file with all the data. Afterwards, this file should still contain the same number of items: all items from all pages, i.e. the same number of items from the combined JSON file.
 
 ### 4. Combine all parsed JSON files
-After all the lists have been processed, use the `scripts/combine_all.py` script to combine all the parsed JSON files into a single file named `combined_triage.json` in the temporary directory.
+After all the lists have been processed, use the `scripts/combine_all.py` script to combine all the parsed JSON files into a single file named `combined_triage.json` in the temporary directory. Afterwards, it should still contain the same number of items as the previous combined JSON file.
 
 ### 5. Summarize and Format Output
 
