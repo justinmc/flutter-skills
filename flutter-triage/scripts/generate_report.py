@@ -20,16 +20,19 @@ def get_status_emoji(status):
     return status
 
 def generate_summary_and_action_items(context, triage_status, is_pr):
-    summary = (context.split('.')[0] + '.').split('\n')[0]
+    # Strip HTML comments to avoid broken summaries
+    clean_context = re.sub(r'<!--.*?-->', '', context, flags=re.DOTALL).strip()
+
+    summary = (clean_context.split('.')[0] + '.').split('\n')[0]
 
     action_items = "No immediate action items identified."
-    if re.search(r'\b(fix|add|implement|investigate|discuss)\b', context, re.IGNORECASE):
+    if re.search(r'\b(fix|add|implement|investigate|discuss)\b', clean_context, re.IGNORECASE):
         action_items = "Further investigation and discussion required."
-    if re.search(r'\b(propose|proposal)\b', context, re.IGNORECASE):
+    if re.search(r'\b(propose|proposal)\b', clean_context, re.IGNORECASE):
         action_items = "Review proposal and discuss feasibility."
-    if re.search(r'\b(example|documentation)\b', context, re.IGNORECASE):
+    if re.search(r'\b(example|documentation)\b', clean_context, re.IGNORECASE):
         action_items = "Review documentation and examples."
-    if re.search(r'\b(test|tests)\b', context, re.IGNORECASE):
+    if re.search(r'\b(test|tests)\b', clean_context, re.IGNORECASE):
         action_items = "Review tests and merge."
 
     # Refine based on triage_status if it is a PR
