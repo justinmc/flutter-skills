@@ -10,8 +10,19 @@ if not GITHUB_TOKEN:
 
 HEADERS = {
     "Accept": "application/vnd.github.v3+json",
-    "Authorization": f"Bearer {GITHUB_TOKEN}",
+    "User-Agent": "Flutter-Triage-Bot",
 }
+
+if GITHUB_TOKEN:
+    try:
+        test_r = requests.get("https://api.github.com/user", headers={**HEADERS, "Authorization": f"Bearer {GITHUB_TOKEN}"})
+        if test_r.status_code != 401:
+            HEADERS["Authorization"] = f"Bearer {GITHUB_TOKEN}"
+        else:
+            print("Warning: GITHUB_TOKEN returned 401. Proceeding unauthenticated.", file=sys.stderr)
+    except Exception as e:
+        print(f"Warning: Failed to test token: {e}. Proceeding unauthenticated.", file=sys.stderr)
+
 
 def get_comments(comments_url):
     comments = []
