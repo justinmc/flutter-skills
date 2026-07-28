@@ -7,7 +7,10 @@ description: Use this skill gather triage information about a single PR.
 
 This skill guides the agent in gathering information about a single GitHub pull
 request that is useful to a human during triage and code review, and it outputs
-that information in a nicely formatted markdown file.
+that information in a nicely formatted markdown file. The point of the markdown
+file is to help a human to quickly understand the solution in the PR, the
+problem that it tries to solve, the history of this problem in the codebase, and
+any existing discussion around the problem.
 
 ## Prerequisites
 Before using this skill, ensure the following:
@@ -49,22 +52,26 @@ the json file. The options are:
      reviewer. This does not apply to members of flutter-hackers, who only
      require one review approval.
 
-### 3. Output
+### 4. Output
 
 Output a markdown file that contains the PR review. The filename should be
 `<org>_<repo>_<PR number>.md`. For example, the PR at URL
-https://github.com/flutter/flutter/pull/182994 should produce the output file
-flutter_flutter_182994.md.
+https://github.com/flutter/flutter/pull/186915 should produce the output file
+flutter_flutter_186915.md.
 
-The output file should follow this format:
+The output file should follow the example given in the file
+flutter_flutter_186915_example.md. Please make sure the following information is
+included:
 
-# <org>/<repo> #<PR number>: <A brief title that explains the PR>
-  * <Last activity - The amount of time that has passed since the last comment or
-    commit on the PR.>
-  * <Author>
-  * <Related issue(s)>
-  * Next steps: <next steps from step #3 of this skill>
-
-<A summary of the problem, activity up until this point, and the solution given by the user>
-
-<A longer summary
+  * The author's GitHub username, along with the author's employer (if known)
+  and whether or not they are an existing contributor to Flutter.
+  * The last time the PR had any activity, like a comment or commit.
+  * A list of keywords, like relevant products, parts of the codebase, etc.
+  * The PR's status, such as open, closed, merged, or draft.
+  * The next steps that were decided in the previous step.
+  * A summary of the PR, the problem it purports to solve, and the solution it
+  proposes. Consider relevant design docs, issues, and discussions when
+  generating this section, and include links where possible.
+  * A "Resources" section that includes links to all relevant GitHub issues,
+  older PRs, source code, and anything else that could be useful in
+  understanding the PR.
