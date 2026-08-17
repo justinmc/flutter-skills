@@ -29,34 +29,21 @@ Once the user provides a team name:
 ### 3. Generate and output lists of PRs and issues via GitHub API
 
 For each list name and URL extracted in the previous step:
-1.  **Convert to API URL:** Transform the web URL into a GitHub API URL.
-    - **`https://github.com/`** becomes **`https://api.github.com/repos/`**.
-    - The query parameters (`?q=...`) from the web URL should be used with the `search/issues` endpoint of the GitHub API.
-    - **Example:** `https://github.com/flutter/flutter/issues?q=...` becomes `https://api.github.com/search/issues?q=repo:flutter/flutter...`
-2.  **Fetch Data with Pagination:**
-    - Create a temporary directory to store the paginated results for the current list.
-    - Use `curl -i` with the `Accept: application/vnd.github.v3+json` header to fetch the first page of JSON data. Save the output (including headers) to a `page_1.json` file in the `tmp` directory.
-    - Inspect the `Link` header in the output file. If there is a `rel="next"` link, extract the URL for the next page.
-    - Continue fetching pages until there are no more "next" links. Save each page's JSON response to a separate file in the `tmp` directory, named `page_2.json`, `page_3.json`, etc.
-3.  **Combine and Parse:**
-    - Use the `scripts/combine_json.py tmp/ <output_file>` script to combine the `items` from all pages into a single JSON file. Afterwards, this file should contain all items from all pages.
-    - Use the `scripts/parse_api_response.py <input_json_file> <output_json_file>` script to parse the combined JSON file and fetch additional context (issue body and comments). This script will output a new JSON file with all the data. Afterwards, this file should still contain the same number of items: all items from all pages, i.e. the same number of items from the combined JSON file.
+1.  **Fetch Data:** Use the `python3 scripts/fetch_list.py "<list_name>" "<url>"` script to automatically fetch and save all paginated pages of JSON data for the list into `tmp/<list_name>/`.
+2.  **Combine and Parse:**
+    - Use the `python3 scripts/combine_json.py tmp/<list_name> tmp/<list_name>_combined.json` script to combine the items from all pages.
+    - Use the `python3 scripts/parse_api_response.py tmp/<list_name>_combined.json tmp/<list_name>_parsed.json` script to parse the JSON file and fetch additional context (issue body and comments).
 
 ### 4. Combine all parsed JSON files
-After all the lists have been processed, use the `scripts/combine_all.py` script to combine all the parsed JSON files into a single file named `combined_triage.json` in the temporary directory. Afterwards, it should still contain the same number of items as the previous combined JSON file.
+After all the lists have been processed, use the `python3 scripts/combine_all.py tmp/combined_triage.json "<list_name>" tmp/<list_name>_parsed.json ...` script to combine all the parsed JSON files into a single file named `tmp/combined_triage.json`.
 
 ### 5. Evaluate Pull Requests with flutter-pr-triage
 
-For every item across the triage lists that is a Pull Request (PR), use the `flutter-pr-triage` skill to evaluate it:
-1.  **Run `flutter-pr-triage`:** For each PR found in the lists, follow the workflow defined in `flutter-pr-triage/SKILL.md`. This will fetch detailed PR metadata, assess its triage status and next steps, and generate an individual PR triage markdown report (named `<org>_<repo>_<PR number>.md`).
-2.  **Collect PR Evaluations:** Retain the detailed summary, triage status, and actionable next steps determined by the `flutter-pr-triage` skill for each PR so they can be incorporated into the final team report. Note that when evaluating multiple PRs, subagents may be invoked to process them concurrently.
+Run `python3 scripts/evaluate_prs.py` to automatically process all Pull Requests (PRs) from the combined triage data. This script will concurrently spawn triage tasks in the `flutter-pr-triage` workspace and output individual markdown files in `../flutter-pr-triage/output/`. Note: ensure it is run from the `flutter-triage` directory.
 
 ### 6. Summarize and Format Output
 
-After running `combine_all.py` and evaluating all PRs, generate the final markdown report for the team. You may use the `scripts/generate_report.py` script to generate an initial draft report from the JSON data.
+After `evaluate_prs.py` finishes evaluating all PRs, generate the final markdown report for the team using:
+`python3 scripts/generate_report.py tmp/combined_triage.json output/<team_filename>-<date>.md "<Team Name>"`
 
-The final output should be a single markdown file in the `flutter-triage/output/` directory, named after the team and the date (e.g., `framework-20260310.md`). This file will contain a section for each triage list found in the README:
-- **For Issues:** Include the generated summary and action items.
-- **For Pull Requests:** Replace the basic summary and action items with the accurate triage status, comprehensive summary, and actionable next steps determined by the `flutter-pr-triage` skill. Include a link to the individual PR markdown report generated by `flutter-pr-triage`.
-
-Include the date in the top heading of the file.
+The final output should be a single markdown file in the `flutter-triage/output/` directory, containing a section for each triage list found in the README. For PRs, the script will automatically extract the accurate triage status, comprehensive summary, and actionable next steps from the individual PR markdown reports generated by `flutter-pr-triage`.
