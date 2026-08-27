@@ -10,7 +10,7 @@ This skill implements the comprehensive process for generating the weekly notabl
 ## Workflow
 
 ### 1. Data Gathering & Curation
-- Fetch latest commits and list all changes from the last 7 days.
+- Use the `flutter-fetch-changes` skill to fetch commits and list all changes for the relevant time range.
 - **Selection Rubric**: Select ~15 commits. Prioritize developer-facing features, DX improvements, significant bug fixes, and platform/accessibility updates. De-prioritize rolls, typos, and internal refactors.
 - Extract PR numbers from the selected commit messages.
 
