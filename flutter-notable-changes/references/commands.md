@@ -3,16 +3,7 @@
 This reference provides the exact commands for each phase of the reporting process.
 
 ## Phase 1: Data Gathering
-```shell
-# Fetch latest commits
-git fetch
-
-# List commits from the last 7 days
-git log --since="7 days ago" --pretty=format:"%H - %s"
-
-# Get total number of commits
-git log --since="7 days ago" --oneline | wc -l
-```
+*(Moved to `flutter-fetch-changes` skill)*
 
 ## Phase 2: Information Retrieval (DATA INTEGRITY MANDATE)
 **DO NOT rely on bulk output. Query each PR individually.**
