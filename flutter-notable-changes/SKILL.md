@@ -1,5 +1,5 @@
 ---
-name: personal-flutter-notable-changes
+name: flutter-notable-changes
 description: Compile the weekly Flutter notable changes report. This skill guides the agent through identifying notable commits, verifying first-time contributors, retrieving PR details (authors, reviewers, media), and drafting the final Markdown report while maintaining the known_authors.md registry.
 ---
 
