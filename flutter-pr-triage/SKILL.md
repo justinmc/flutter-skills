@@ -51,6 +51,12 @@ the json file. The options are:
      primary reviewer approval and is awaiting a secondary approval from another
      reviewer. This does not apply to members of flutter-hackers, who only
      require one review approval.
+  4. Needs autosubmit. This means that the PR has the proper number of code
+     review approvals and has passed CI. It just needs to have the "autosubmit"
+     label applied so that it can be merged.
+  5. Waiting to land. This means that the PR has everything that it needs to be
+     merged and is simply waiting for the merge queue or for the bot to add it
+     to the merge queue.
 
 ### 4. Output
 
