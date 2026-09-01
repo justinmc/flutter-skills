@@ -85,36 +85,26 @@ def generate_summary_and_action_items(context, triage_status, is_pr, pr_number=N
 
     return summary, action_items, get_status_emoji(triage_status)
 
-def create_markdown_section(list_name, data):
-    markdown = f"## {list_name}\n\n"
-    if 'items' in data:
-        for item in data['items']:
-            context = item.get('context', '')
-            if not isinstance(context, str):
-                context = str(context)
-
-            is_pr = item.get('is_pr', False)
-            triage_status = item.get('triage_status', 'N/A')
-            html_url = item.get('html_url', '')
-            
-            pr_number = None
-            if is_pr and html_url:
-                pr_number = html_url.split('/')[-1]
-
-            summary, action_items, actual_triage = generate_summary_and_action_items(context, triage_status, is_pr, pr_number)
-            
-            date_opened = datetime.datetime.fromisoformat(item['date_opened'].replace('Z', '+00:00')).strftime('%Y-%m-%d')
-            markdown += f"### [{item['title']}]({item['html_url']})\n"
-            markdown += f"- **Author**: [{item['author']}]({item['author_url']})\n"
-            markdown += f"- **Date Opened**: {date_opened}\n"
-            markdown += f"- **Priority**: {item.get('priority', 'N/A')}\n"
-            if is_pr:
-                markdown += f"- **Triage Status**: {actual_triage}\n"
-                workspace = "/usr/local/google/home/jmccandless/Projects/flutter-skills"
-                markdown += f"- **Full PR Report**: [flutter_flutter_{pr_number}.md](file://{workspace}/flutter-pr-triage/output/flutter_flutter_{pr_number}.md)\n"
-            markdown += f"- **Summary**: {summary}\n"
-            markdown += f"- **Action Items**: {action_items}\n\n"
-    return markdown
+def determine_category(is_pr, triage_status, action_items):
+    """Maps PRs to one of the 5 categories from flutter-pr-triage."""
+    if not is_pr:
+        return "Issues"
+    
+    status_lower = triage_status.lower()
+    action_lower = action_items.lower()
+    if "waiting on author" in status_lower or "blocked" in status_lower or "conflict" in status_lower:
+        return "Wait for the author"
+    if "secondary review" in action_lower:
+        return "Needs secondary review"
+    if "waiting on review" in status_lower or "review" in action_lower:
+        return "Needs primary review"
+    if "autosubmit" in action_lower or "ready to merge" in status_lower:
+        return "Needs autosubmit"
+    if "waiting to land" in action_lower or "land" in action_lower:
+        return "Waiting to land"
+        
+    # Default fallback for unknown PR states to adhere to categories:
+    return "Needs primary review"
 
 def main():
     if len(sys.argv) != 4:
@@ -128,11 +118,62 @@ def main():
     today = datetime.date.today().strftime("%Y%m%d")
     markdown = f"# Flutter {team_name} Triage - {today}\n\n"
 
+    categories = [
+        "Wait for the author",
+        "Needs primary review",
+        "Needs secondary review",
+        "Needs autosubmit",
+        "Waiting to land",
+        "Issues"
+    ]
+    
+    categorized_items = {cat: [] for cat in categories}
+
     with open(input_combined_json_file, 'r') as f:
         data = json.load(f)
-        # Order keys so issues are first, PRs are last, etc.
         for list_name, list_data in data.items():
-            markdown += create_markdown_section(list_name, list_data)
+            if 'items' in list_data:
+                for item in list_data['items']:
+                    context = item.get('context', '')
+                    if not isinstance(context, str):
+                        context = str(context)
+
+                    is_pr = item.get('is_pr', False)
+                    triage_status = item.get('triage_status', 'N/A')
+                    html_url = item.get('html_url', '')
+                    
+                    pr_number = None
+                    if is_pr and html_url:
+                        pr_number = html_url.split('/')[-1]
+
+                    summary, action_items, actual_triage = generate_summary_and_action_items(context, triage_status, is_pr, pr_number)
+                    
+                    cat = determine_category(is_pr, actual_triage, action_items)
+                    
+                    item_md = ""
+                    date_opened = datetime.datetime.fromisoformat(item['date_opened'].replace('Z', '+00:00')).strftime('%Y-%m-%d')
+                    item_md += f"### [{item['title']}]({item['html_url']})\n"
+                    item_md += f"- **Author**: [{item['author']}]({item['author_url']})\n"
+                    item_md += f"- **Date Opened**: {date_opened}\n"
+                    item_md += f"- **Priority**: {item.get('priority', 'N/A')}\n"
+                    if is_pr:
+                        item_md += f"- **Triage Status**: {actual_triage}\n"
+                        workspace = "/usr/local/google/home/jmccandless/Projects/flutter-skills"
+                        item_md += f"- **Full PR Report**: [flutter_flutter_{pr_number}.md](file://{workspace}/flutter-pr-triage/output/flutter_flutter_{pr_number}.md)\n"
+                    item_md += f"- **Summary**: {summary}\n"
+                    item_md += f"- **Action Items**: {action_items}\n\n"
+                    
+                    if cat in categorized_items:
+                        categorized_items[cat].append(item_md)
+                    else:
+                        # Safety fallback
+                        categorized_items["Issues"].append(item_md)
+
+    for cat in categories:
+        if categorized_items[cat]:
+            markdown += f"## {cat}\n\n"
+            for md in categorized_items[cat]:
+                markdown += md
 
     output_dir = os.path.dirname(output_markdown_file)
     if output_dir and not os.path.exists(output_dir):
