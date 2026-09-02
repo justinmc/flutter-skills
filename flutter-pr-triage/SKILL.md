@@ -43,10 +43,15 @@ the json file. The options are:
      waiting for CI to finish running, or they need to fix some broken CI
      failures (other than failures that are the responsibility of maintainers,
      like Google Tests).
-  2. Needs primary review. This indicates that the PR is ready for review but
-     has not yet received an approval. A Flutter maintainer needs to make a
-     primary review of the PR and give approval, or needs to follow up with another
-     round of review if the PR has already received a review but not an approval.
+  2. Needs reviewer assignment. This indicates that the PR is ready for review
+     but currently has no reviewers assigned. A Flutter maintainer needs to
+     assign two reviewers, unless the PR author is a member of the Flutter org,
+     in which case they only need to assign one reviewer.
+  2. Needs primary review. This indicates that the PR is ready for review and
+     has at least one reviewer assigned, but it has not yet received an
+     approval. A Flutter maintainer needs to make a primary review of the PR and
+     give approval, or needs to follow up with another round of review if the PR
+     has already received a review but not an approval.
   3. Needs secondary review. This indicates that the PR has already received
      primary reviewer approval and is awaiting a secondary approval from another
      reviewer. This does not apply to members of flutter-hackers, who only
