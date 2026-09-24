@@ -63,6 +63,11 @@ the json file. The options are:
      merged and is simply waiting for the merge queue or for the bot to add it
      to the merge queue.
 
+Separately, for PRs in any of these steps, assess whether or not the PR needs
+the CICD label to be applied. A PR needs the CICD label when it's not waiting on
+the author for any changes, like there are no merge conflicts, and it does not
+currently have the CICD label.
+
 ### 4. Output
 
 Output a markdown file that contains the PR review. The filename should be
