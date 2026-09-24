@@ -116,11 +116,57 @@ def is_bot_account(author_dict=None, login=None, name=None, email=None):
         
     return False
 
+REPO_ALIASES = {
+    "flutter": "flutter/flutter",
+    "flutter/flutter": "flutter/flutter",
+    "website": "flutter/website",
+    "flutter-website": "flutter/website",
+    "flutter/website": "flutter/website",
+    "site-www": "dart-lang/site-www",
+    "dart-website": "dart-lang/site-www",
+    "dart-lang/site-www": "dart-lang/site-www",
+}
+
+WEBSITE_REPOS = {"flutter/website", "dart-lang/site-www"}
+ALL_REPOS = ("flutter/flutter", "flutter/website", "dart-lang/site-www")
+
+def parse_pr_spec(spec_str, default_repo="flutter/flutter"):
+    spec = spec_str.strip()
+    url_match = re.match(r'^https?://github\.com/([^/]+/[^/]+)/pull/(\d+)', spec)
+    if url_match:
+        repo_part, num_part = url_match.group(1), url_match.group(2)
+        return REPO_ALIASES.get(repo_part.lower(), repo_part), int(num_part)
+
+    if '#' in spec and not spec.startswith('#'):
+        repo_part, num_part = spec.split('#', 1)
+        return REPO_ALIASES.get(repo_part.strip().lower(), repo_part.strip()), int(num_part.strip())
+
+    if ':' in spec:
+        repo_part, num_part = spec.split(':', 1)
+        return REPO_ALIASES.get(repo_part.strip().lower(), repo_part.strip()), int(num_part.strip().lstrip('#'))
+
+    norm_default = REPO_ALIASES.get(default_repo.strip().lower(), default_repo.strip())
+    return norm_default, int(spec.lstrip('#'))
+
+def format_pr_ref(repo, pr_num):
+    if repo == "flutter/flutter":
+        return f"#{pr_num}"
+    return f"{repo}#{pr_num}"
+
+def get_remote_commit_count(repo, start_date, end_date):
+    since_iso = f"{start_date.isoformat()}T00:00:00Z"
+    until_iso = f"{end_date.isoformat()}T23:59:59Z"
+    cmd = f'gh api "repos/{repo}/commits?since={since_iso}&until={until_iso}&per_page=100" --paginate --jq ".[].sha"'
+    stdout = run_command(cmd)
+    if not stdout:
+        return "0"
+    return str(len([line for line in stdout.splitlines() if line.strip()]))
+
 def check_first_time_contributor(author_login, author_name, pr_commits, start_date,
                                  ref="upstream/master", repo="flutter/flutter"):
     if is_bot_account(login=author_login, name=author_name):
         return False
-    # Check 1: Check local Git log by author name and email
+    # Check 1: Check local Git log (for flutter/flutter) by author name and email
     emails = set()
     names = set()
     for commit in pr_commits:
@@ -167,10 +213,23 @@ def check_first_time_contributor(author_login, author_name, pr_commits, start_da
                     is_first_git = False
                     break
 
-    # Check 2: Check GitHub Search for commits before start_date
+    # If the PR comes from a remote website repo, also check commits via GitHub REST API by login/email
+    if is_first_git and repo != "flutter/flutter":
+        until_iso = f"{start_date.isoformat()}T00:00:00Z"
+        for identifier in ({author_login} | emails):
+            if not identifier:
+                continue
+            api_res = run_command(f'gh api "repos/{repo}/commits?author={identifier}&until={until_iso}&per_page=1" --jq "length"')
+            if api_res and api_res.isdigit() and int(api_res) > 0:
+                is_first_git = False
+                break
+
+    # Check 2: Check GitHub Search for commits before start_date across all tracked repositories
     is_first_gh = True
     start_date_str = start_date.strftime('%Y-%m-%d')
-    gh_search_cmd = f'gh search commits --author-date="<{start_date_str}" --author="{author_login}" --repo "{repo}" --limit 1'
+    repos_to_check = list(dict.fromkeys([*ALL_REPOS, repo]))
+    repo_flags = " ".join(f'--repo "{r}"' for r in repos_to_check)
+    gh_search_cmd = f'gh search commits --author-date="<{start_date_str}" --author="{author_login}" {repo_flags} --limit 1'
     gh_res = run_command(gh_search_cmd)
     if gh_res:
         is_first_gh = False
@@ -258,6 +317,7 @@ CATEGORY_LABELS = [
     ("Tooling & Developer Experience", {'tool', 'a: build', 't: gradle', 't: xcode', 't: flutter driver'}),
     ("Engine & Performance", {'engine', 'e: impeller', 'flutter-gpu'}),
     ("Framework & Core Libraries", {'framework'}),
+    ("Documentation", {'documentation', 'a:ite'}),
 ]
 
 DEFAULT_CATEGORY = "Framework & Core Libraries"
@@ -266,10 +326,13 @@ DEFAULT_CATEGORY = "Framework & Core Libraries"
 # reformat), so any label-derived category is arbitrary.
 REPO_WIDE_LABEL_THRESHOLD = 8
 
-def categorize_pr(labels):
+def categorize_pr(labels, repo="flutter/flutter"):
     # Returns (category, confidence, candidates).
     # confidence is 'high' or 'low'; 'low' means the caller should review the
     # choice and override it with --category if needed.
+    if repo in WEBSITE_REPOS:
+        return "Documentation", "high", ["Documentation"]
+
     label_names = {l['name'].lower() for l in labels}
     meaningful = {
         name for name in label_names
@@ -295,18 +358,19 @@ def categorize_pr(labels):
 
 def main():
     parser = argparse.ArgumentParser(description="Generate Weekly Notable Changes Report")
-    parser.add_argument("pr_numbers", nargs="+", type=int, help="List of PR numbers to include in the report")
+    parser.add_argument("pr_specs", nargs="+", type=str,
+                        help="List of PR specs to include (e.g. 192649, flutter/website#13925, dart-lang/site-www#7521)")
     parser.add_argument("--since", type=str, default="7 days ago", help="Git since description (for total commits calculation)")
-    parser.add_argument("--start-date", type=str, help="Start date for first-time contributor checks (YYYY-MM-DD). Defaults to 7 days ago.")
+    parser.add_argument("--start-date", type=str, help="Start date for first-time contributor checks and website commit counts (YYYY-MM-DD). Defaults to 7 days ago.")
     parser.add_argument("--end-date", type=str, help="End date of report (YYYY-MM-DD). Defaults to today.")
     parser.add_argument("--ref", type=str, default="upstream/master",
                         help="Git ref to count commits and check author history against. "
                              "Defaults to upstream/master so a stale or forked local HEAD does not skew results.")
     parser.add_argument("--repo", type=str, default="flutter/flutter",
-                        help="GitHub repo to query. Defaults to flutter/flutter.")
+                        help="Default GitHub repo for bare PR numbers. Defaults to flutter/flutter.")
     parser.add_argument("--category", action="append", default=[], metavar="PR=CATEGORY",
-                        help="Override the computed category for a PR, e.g. --category 192649='Tooling & Developer Experience'. "
-                             "Repeatable.")
+                        help="Override the computed category for a PR, e.g. --category 192649='Tooling & Developer Experience' "
+                             "or --category flutter/website#13925='Documentation'. Repeatable.")
     args = parser.parse_args()
     
     now = datetime.datetime.now(timezone.utc).date()
@@ -331,7 +395,8 @@ def main():
         "Android Platform": [],
         "iOS Platform": [],
         "Desktop Platforms": [],
-        "Tooling & Developer Experience": []
+        "Tooling & Developer Experience": [],
+        "Documentation": []
     }
 
     # Parse --category overrides.
@@ -340,12 +405,17 @@ def main():
         if '=' not in override:
             print(f"Error: --category expects PR=CATEGORY, got '{override}'", file=sys.stderr)
             return 2
-        pr_str, cat = override.split('=', 1)
+        pr_spec_str, cat = override.split('=', 1)
         cat = cat.strip()
         if cat not in categories:
             print(f"Error: unknown category '{cat}'. Valid categories: {', '.join(categories)}", file=sys.stderr)
             return 2
-        category_overrides[int(pr_str.strip().lstrip('#'))] = cat
+        try:
+            ov_repo, ov_pr_num = parse_pr_spec(pr_spec_str, default_repo=args.repo)
+        except ValueError:
+            print(f"Error: invalid PR spec in --category: '{pr_spec_str}'", file=sys.stderr)
+            return 2
+        category_overrides[(ov_repo, ov_pr_num)] = cat
 
     # Resolve the ref used for commit counting and author history.
     ref = args.ref
@@ -354,15 +424,25 @@ def main():
               f"Commit counts may be wrong if HEAD is not synced with upstream.", file=sys.stderr)
         ref = "HEAD"
 
-    total_commits = run_command(f'git log {ref} --since="{args.since}" --oneline | wc -l')
+    total_commits = run_command(f'git log {ref} --since="{args.since}" --oneline | wc -l') or "0"
+    website_commits = get_remote_commit_count("flutter/website", start_date, end_date)
+    dart_website_commits = get_remote_commit_count("dart-lang/site-www", start_date, end_date)
 
     first_time_contributors = []
     low_confidence_categories = []
     
-    print(f"Processing {len(args.pr_numbers)} PRs... This may take a minute...", file=sys.stderr)
+    parsed_prs = []
+    for spec_str in args.pr_specs:
+        try:
+            parsed_prs.append(parse_pr_spec(spec_str, default_repo=args.repo))
+        except ValueError:
+            print(f"Error: invalid PR specification '{spec_str}'", file=sys.stderr)
+            return 2
+
+    print(f"Processing {len(parsed_prs)} PRs... This may take a minute...", file=sys.stderr)
     
-    for pr_num in args.pr_numbers:
-        pr = get_pr_details(pr_num, repo=args.repo)
+    for pr_repo, pr_num in parsed_prs:
+        pr = get_pr_details(pr_num, repo=pr_repo)
         if not pr:
             continue
             
@@ -373,6 +453,7 @@ def main():
         body = pr.get('body', '')
         commits = pr.get('commits', [])
         labels = pr.get('labels', [])
+        pr_ref = format_pr_ref(pr_repo, pr_num)
         
         # Deduplicate human reviewers (exclude automated/robot accounts)
         reviewers_set = set()
@@ -424,12 +505,13 @@ def main():
             already_listed = any(c['login'] == author_login for c in first_time_contributors)
             if not already_listed:
                 is_new = check_first_time_contributor(author_login, author_name, commits, start_date,
-                                                      ref=ref, repo=args.repo)
+                                                      ref=ref, repo=pr_repo)
                 if is_new:
                     first_time_contributors.append({
                         'name': author_name,
                         'login': author_login,
                         'pr_number': pr_num,
+                        'pr_ref': pr_ref,
                         'pr_url': pr_url,
                         'title': title
                     })
@@ -455,7 +537,9 @@ def main():
                 
         # Build entry object
         entry = {
+            'repo': pr_repo,
             'number': pr_num,
+            'pr_ref': pr_ref,
             'url': pr_url,
             'title': title,
             'author_name': actual_author_name,
@@ -467,12 +551,12 @@ def main():
         }
         
         # Categorize
-        category, confidence, candidates = categorize_pr(labels)
-        if pr_num in category_overrides:
-            category = category_overrides[pr_num]
+        category, confidence, candidates = categorize_pr(labels, repo=pr_repo)
+        if (pr_repo, pr_num) in category_overrides:
+            category = category_overrides[(pr_repo, pr_num)]
         elif confidence == 'low':
             low_confidence_categories.append({
-                'number': pr_num,
+                'pr_ref': pr_ref,
                 'title': title,
                 'category': category,
                 'candidates': candidates,
@@ -486,7 +570,11 @@ def main():
     
     report = []
     report.append(f"### {start_formatted} to {end_formatted}\n")
-    report.append(f"This week, {total_commits} commits landed in the Flutter repository. ")
+    report.append(
+        f"This week, {total_commits} commits landed in the Flutter repository, "
+        f"{website_commits} in the Flutter website repository, and "
+        f"{dart_website_commits} in the Dart website repository. "
+    )
     if first_time_contributors:
         new_contribs_list = [f"@{c['login']}" for c in first_time_contributors]
         new_contribs_str = ", ".join(new_contribs_list)
@@ -503,7 +591,7 @@ def main():
             if title_formatted and not title_formatted.endswith('.'):
                 pass # keep standard
                 
-            report.append(f"*   **[#{pr['number']}]({pr['url']}) {title_formatted}**")
+            report.append(f"*   **[{pr['pr_ref']}]({pr['url']}) {title_formatted}**")
             report.append("    Detailed impact/benefit description of the change goes here. Use 1-2 relevant emojis. 🚀")
             
             # Embed Media
@@ -544,7 +632,7 @@ def main():
         report.append("#### First-time Contributors\n")
         report.append("We would like to extend a warm welcome to our new contributors this week! Thank you for your impactful contributions:\n")
         for c in first_time_contributors:
-            report.append(f"- [{c['name']}](https://github.com/{c['login']}), for [#{c['pr_number']}]({c['pr_url']}), which resolved: **{c['title']}**.")
+            report.append(f"- [{c['name']}](https://github.com/{c['login']}), for [{c['pr_ref']}]({c['pr_url']}), which resolved: **{c['title']}**.")
         report.append("")
         
     # Print the report to stdout
@@ -556,11 +644,11 @@ def main():
         print("⚠️  REVIEW CATEGORIZATION: label-based guess is unreliable for these PRs", file=sys.stderr)
         for item in low_confidence_categories:
             others = [c for c in item['candidates'] if c != item['category']]
-            print(f"* #{item['number']} {item['title']}", file=sys.stderr)
+            print(f"* {item['pr_ref']} {item['title']}", file=sys.stderr)
             print(f"    placed in: {item['category']}", file=sys.stderr)
             print(f"    other candidates: {', '.join(others) if others else 'none'}", file=sys.stderr)
             print(f"    labels: {', '.join(item['labels'])}", file=sys.stderr)
-        print("Re-run with --category <PR>='<Category>' to override any of the above.",
+        print("Re-run with --category <PR_SPEC>='<Category>' to override any of the above.",
               file=sys.stderr)
         print("===================================================\n", file=sys.stderr)
 
