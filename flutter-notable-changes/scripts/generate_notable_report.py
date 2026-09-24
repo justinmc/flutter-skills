@@ -1,7 +1,6 @@
 import argparse
 import datetime
 import json
-import os
 import re
 import subprocess
 import sys
@@ -16,10 +15,10 @@ def run_command(cmd, cwd=None):
         pass
     return ""
 
-def get_pr_details(pr_num):
+def get_pr_details(pr_num, repo="flutter/flutter"):
     # Fetch comprehensive PR details in JSON format
     fields = "number,title,author,reviews,comments,body,url,commits,labels"
-    cmd = f"gh pr view {pr_num} --json {fields}"
+    cmd = f"gh pr view {pr_num} --repo {repo} --json {fields}"
     stdout = run_command(cmd)
     if not stdout:
         print(f"Error: Failed to fetch PR #{pr_num}", file=sys.stderr)
@@ -117,7 +116,8 @@ def is_bot_account(author_dict=None, login=None, name=None, email=None):
         
     return False
 
-def check_first_time_contributor(author_login, author_name, pr_commits, start_date):
+def check_first_time_contributor(author_login, author_name, pr_commits, start_date,
+                                 ref="upstream/master", repo="flutter/flutter"):
     if is_bot_account(login=author_login, name=author_name):
         return False
     # Check 1: Check local Git log by author name and email
@@ -147,7 +147,7 @@ def check_first_time_contributor(author_login, author_name, pr_commits, start_da
     is_first_git = True
     for email in emails:
         # Find first ever commit date in git local log
-        first_commit = run_command(f'git log --author="{email}" --reverse --pretty=format:"%ci" | head -n 1')
+        first_commit = run_command(f'git log {ref} --author="{email}" --reverse --pretty=format:"%ci" | head -n 1')
         if first_commit:
             # Extract date part YYYY-MM-DD
             first_date_str = first_commit.split()[0]
@@ -159,7 +159,7 @@ def check_first_time_contributor(author_login, author_name, pr_commits, start_da
                 
     if is_first_git:
         for name in names:
-            first_commit = run_command(f'git log --author="{name}" --reverse --pretty=format:"%ci" | head -n 1')
+            first_commit = run_command(f'git log {ref} --author="{name}" --reverse --pretty=format:"%ci" | head -n 1')
             if first_commit:
                 first_date_str = first_commit.split()[0]
                 first_date = datetime.date.fromisoformat(first_date_str)
@@ -170,7 +170,7 @@ def check_first_time_contributor(author_login, author_name, pr_commits, start_da
     # Check 2: Check GitHub Search for commits before start_date
     is_first_gh = True
     start_date_str = start_date.strftime('%Y-%m-%d')
-    gh_search_cmd = f'gh search commits --author-date="<{start_date_str}" --author="{author_login}" --repo "flutter/flutter" --limit 1'
+    gh_search_cmd = f'gh search commits --author-date="<{start_date_str}" --author="{author_login}" --repo "{repo}" --limit 1'
     gh_res = run_command(gh_search_cmd)
     if gh_res:
         is_first_gh = False
@@ -230,37 +230,68 @@ def extract_media(body):
             
     return media_elements
 
-def categorize_pr(labels):
-    label_names = [l['name'].lower() for l in labels]
-    
-    if any('accessibility' in name or 'a: accessibility' in name for name in label_names):
-        return "Accessibility"
-    if any('material' in name or 'f: material' in name for name in label_names):
-        return "Material Design"
-    if any('cupertino' in name or 'f: cupertino' in name for name in label_names):
-        return "Cupertino (iOS-style)"
-    if any('tool' in name or 'flutter tool' in name or 't:' in name for name in label_names):
-        return "Tooling & Developer Experience"
-    if any('web' in name or 'platform-web' in name for name in label_names):
-        return "Web Platform"
-    if any('android' in name or 'platform-android' in name for name in label_names):
-        return "Android Platform"
-    if any('ios' in name or 'platform-ios' in name for name in label_names):
-        return "iOS Platform"
-    if any('desktop' in name or 'platform-macos' in name or 'platform-windows' in name or 'platform-linux' in name for name in label_names):
-        return "Desktop Platforms"
-    if any('engine' in name for name in label_names):
-        return "Engine & Performance"
-        
-    return "Framework & Core Libraries"
+# Labels that carry no signal about what area a PR touches.
+NOISE_LABELS = {
+    'cicd',
+    'emergency',
+    'override code freeze',
+    'will affect goldens',
+    'waiting for tree to go green',
+    'autosubmit',
+    'revert',
+    'work in progress (wip)',
+}
 
-def check_known_author(login_or_name):
-    known_authors_path = 'packages/flutter/known_authors.md'
-    if not os.path.exists(known_authors_path):
-        return False
-    with open(known_authors_path, 'r') as f:
-        content = f.read().lower()
-    return login_or_name.lower() in content
+NOISE_PREFIXES = ('team-', 'd: ', 'c: ', 'l:', 'p: first party', 'r: ')
+
+# Ordered by precedence: the first category with a matching label wins.
+# Matching is on exact label names, since Flutter labels like "a: tests" or
+# "platform-fuchsia" would otherwise be caught by substring matches.
+CATEGORY_LABELS = [
+    ("Accessibility", {'a: accessibility'}),
+    ("Material Design", {'f: material design', 'p: material_ui'}),
+    ("Cupertino (iOS-style)", {'f: cupertino', 'p: cupertino_ui'}),
+    ("Web Platform", {'platform-web', 'e: web_canvaskit', 'e: web_html', 'e: skwasm'}),
+    ("Android Platform", {'platform-android'}),
+    ("iOS Platform", {'platform-ios'}),
+    ("Desktop Platforms", {'platform-linux', 'platform-macos', 'platform-windows', 'a: desktop'}),
+    ("Tooling & Developer Experience", {'tool', 'a: build', 't: gradle', 't: xcode', 't: flutter driver'}),
+    ("Engine & Performance", {'engine', 'e: impeller', 'flutter-gpu'}),
+    ("Framework & Core Libraries", {'framework'}),
+]
+
+DEFAULT_CATEGORY = "Framework & Core Libraries"
+
+# PRs carrying more labels than this touch the whole repo (e.g. a repo-wide
+# reformat), so any label-derived category is arbitrary.
+REPO_WIDE_LABEL_THRESHOLD = 8
+
+def categorize_pr(labels):
+    # Returns (category, confidence, candidates).
+    # confidence is 'high' or 'low'; 'low' means the caller should review the
+    # choice and override it with --category if needed.
+    label_names = {l['name'].lower() for l in labels}
+    meaningful = {
+        name for name in label_names
+        if name not in NOISE_LABELS and not name.startswith(NOISE_PREFIXES)
+    }
+
+    candidates = [cat for cat, cat_labels in CATEGORY_LABELS if meaningful & cat_labels]
+    category = candidates[0] if candidates else DEFAULT_CATEGORY
+
+    confidence = 'high'
+    if len(meaningful) > REPO_WIDE_LABEL_THRESHOLD:
+        # Repo-wide change: prefer Tooling if it is a tool change, else default.
+        category = "Tooling & Developer Experience" if 'tool' in meaningful else DEFAULT_CATEGORY
+        confidence = 'low'
+    elif len(candidates) >= 3:
+        confidence = 'low'
+    elif not candidates:
+        confidence = 'low'
+
+    return category, confidence, candidates
+
+
 
 def main():
     parser = argparse.ArgumentParser(description="Generate Weekly Notable Changes Report")
@@ -268,6 +299,14 @@ def main():
     parser.add_argument("--since", type=str, default="7 days ago", help="Git since description (for total commits calculation)")
     parser.add_argument("--start-date", type=str, help="Start date for first-time contributor checks (YYYY-MM-DD). Defaults to 7 days ago.")
     parser.add_argument("--end-date", type=str, help="End date of report (YYYY-MM-DD). Defaults to today.")
+    parser.add_argument("--ref", type=str, default="upstream/master",
+                        help="Git ref to count commits and check author history against. "
+                             "Defaults to upstream/master so a stale or forked local HEAD does not skew results.")
+    parser.add_argument("--repo", type=str, default="flutter/flutter",
+                        help="GitHub repo to query. Defaults to flutter/flutter.")
+    parser.add_argument("--category", action="append", default=[], metavar="PR=CATEGORY",
+                        help="Override the computed category for a PR, e.g. --category 192649='Tooling & Developer Experience'. "
+                             "Repeatable.")
     args = parser.parse_args()
     
     now = datetime.datetime.now(timezone.utc).date()
@@ -282,8 +321,6 @@ def main():
     else:
         end_date = now
         
-    total_commits = run_command(f'git log --since="{args.since}" --oneline | wc -l')
-    
     categories = {
         "Material Design": [],
         "Cupertino (iOS-style)": [],
@@ -296,14 +333,36 @@ def main():
         "Desktop Platforms": [],
         "Tooling & Developer Experience": []
     }
-    
+
+    # Parse --category overrides.
+    category_overrides = {}
+    for override in args.category:
+        if '=' not in override:
+            print(f"Error: --category expects PR=CATEGORY, got '{override}'", file=sys.stderr)
+            return 2
+        pr_str, cat = override.split('=', 1)
+        cat = cat.strip()
+        if cat not in categories:
+            print(f"Error: unknown category '{cat}'. Valid categories: {', '.join(categories)}", file=sys.stderr)
+            return 2
+        category_overrides[int(pr_str.strip().lstrip('#'))] = cat
+
+    # Resolve the ref used for commit counting and author history.
+    ref = args.ref
+    if ref and not run_command(f'git rev-parse --verify --quiet "{ref}^{{commit}}"'):
+        print(f"Warning: ref '{ref}' not found; falling back to HEAD. "
+              f"Commit counts may be wrong if HEAD is not synced with upstream.", file=sys.stderr)
+        ref = "HEAD"
+
+    total_commits = run_command(f'git log {ref} --since="{args.since}" --oneline | wc -l')
+
     first_time_contributors = []
-    missing_known_authors = []
+    low_confidence_categories = []
     
     print(f"Processing {len(args.pr_numbers)} PRs... This may take a minute...", file=sys.stderr)
     
     for pr_num in args.pr_numbers:
-        pr = get_pr_details(pr_num)
+        pr = get_pr_details(pr_num, repo=args.repo)
         if not pr:
             continue
             
@@ -360,26 +419,20 @@ def main():
         # Check if the main PR author is a bot/robot
         is_author_bot = is_bot_account(pr.get('author'), author_login, author_name)
         
-        # Check First-time Contributor Status and Housekeeping
+        # Check First-time Contributor Status
         if not is_author_bot:
-            is_new = check_first_time_contributor(author_login, author_name, commits, start_date)
-            if is_new:
-                first_time_contributors.append({
-                    'name': author_name,
-                    'login': author_login,
-                    'pr_number': pr_num,
-                    'pr_url': pr_url,
-                    'title': title
-                })
-            
-            # Housekeeping: check if in known_authors.md
-            if not check_known_author(author_login) and not check_known_author(author_name):
-                missing_known_authors.append(f"* {author_name} ({author_login})")
-                
-        for ca in co_authors:
-            ca_id = ca['login'] or ca['name']
-            if not check_known_author(ca_id):
-                missing_known_authors.append(f"* {ca['name']} ({ca_id}) [Co-author]")
+            already_listed = any(c['login'] == author_login for c in first_time_contributors)
+            if not already_listed:
+                is_new = check_first_time_contributor(author_login, author_name, commits, start_date,
+                                                      ref=ref, repo=args.repo)
+                if is_new:
+                    first_time_contributors.append({
+                        'name': author_name,
+                        'login': author_login,
+                        'pr_number': pr_num,
+                        'pr_url': pr_url,
+                        'title': title
+                    })
                 
         # Extract visual media
         media = extract_media(body)
@@ -414,7 +467,17 @@ def main():
         }
         
         # Categorize
-        category = categorize_pr(labels)
+        category, confidence, candidates = categorize_pr(labels)
+        if pr_num in category_overrides:
+            category = category_overrides[pr_num]
+        elif confidence == 'low':
+            low_confidence_categories.append({
+                'number': pr_num,
+                'title': title,
+                'category': category,
+                'candidates': candidates,
+                'labels': sorted(l['name'] for l in labels),
+            })
         categories[category].append(entry)
         
     # Generate Report Content
@@ -486,14 +549,22 @@ def main():
         
     # Print the report to stdout
     print('\n'.join(report))
-    
-    # Print known_authors housekeeping block to stderr
-    if missing_known_authors:
+
+    # Flag categorizations the agent should review manually.
+    if low_confidence_categories:
         print("\n===================================================", file=sys.stderr)
-        print("⚠️  HOUSEKEEPING NOTICE: Missing entries in known_authors.md", file=sys.stderr)
-        print("The following authors need to be added to packages/flutter/known_authors.md:", file=sys.stderr)
-        print('\n'.join(missing_known_authors), file=sys.stderr)
+        print("⚠️  REVIEW CATEGORIZATION: label-based guess is unreliable for these PRs", file=sys.stderr)
+        for item in low_confidence_categories:
+            others = [c for c in item['candidates'] if c != item['category']]
+            print(f"* #{item['number']} {item['title']}", file=sys.stderr)
+            print(f"    placed in: {item['category']}", file=sys.stderr)
+            print(f"    other candidates: {', '.join(others) if others else 'none'}", file=sys.stderr)
+            print(f"    labels: {', '.join(item['labels'])}", file=sys.stderr)
+        print("Re-run with --category <PR>='<Category>' to override any of the above.",
+              file=sys.stderr)
         print("===================================================\n", file=sys.stderr)
 
+    return 0
+
 if __name__ == "__main__":
-    main()
+    sys.exit(main() or 0)
