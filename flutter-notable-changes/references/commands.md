@@ -39,16 +39,16 @@ gh search commits --author-date "<YYYY-MM-DD" --author="<LOGIN>" \
 ```
 
 ## Phase 4: Review Categorization
-PRs from `flutter/website` and `dart-lang/site-www` are automatically placed into the `Documentation` category. For `flutter/flutter` PRs, categories are derived from GitHub labels, which is a heuristic. The script prints a `REVIEW CATEGORIZATION` block on stderr for PRs whose labels are ambiguous or repo-wide. Override any of them:
+PRs from `flutter/website` and `dart-lang/site-www` are automatically placed into the `Documentation and Website` category. For `flutter/flutter` PRs, categories are derived from GitHub labels, which is a heuristic. The script prints a `REVIEW CATEGORIZATION` block on stderr for PRs whose labels are ambiguous or repo-wide. Override any of them:
 ```shell
 python3 <skill_dir>/scripts/generate_notable_report.py <PR_SPECS> \
   --category 192649='Tooling & Developer Experience' \
-  --category flutter/website#13925='Documentation'
+  --category flutter/website#13925='Documentation and Website'
 ```
 Valid categories: `Material Design`, `Cupertino (iOS-style)`, `Accessibility`,
 `Framework & Core Libraries`, `Engine & Performance`, `Web Platform`,
 `Android Platform`, `iOS Platform`, `Desktop Platforms`,
-`Tooling & Developer Experience`, `Documentation`.
+`Tooling & Developer Experience`, `Documentation and Website`.
 
 ```shell
 # Inspect a PR's labels directly when deciding a category

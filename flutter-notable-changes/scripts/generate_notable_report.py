@@ -317,7 +317,7 @@ CATEGORY_LABELS = [
     ("Tooling & Developer Experience", {'tool', 'a: build', 't: gradle', 't: xcode', 't: flutter driver'}),
     ("Engine & Performance", {'engine', 'e: impeller', 'flutter-gpu'}),
     ("Framework & Core Libraries", {'framework'}),
-    ("Documentation", {'documentation', 'a:ite'}),
+    ("Documentation and Website", {'documentation', 'a:ite'}),
 ]
 
 DEFAULT_CATEGORY = "Framework & Core Libraries"
@@ -331,7 +331,7 @@ def categorize_pr(labels, repo="flutter/flutter"):
     # confidence is 'high' or 'low'; 'low' means the caller should review the
     # choice and override it with --category if needed.
     if repo in WEBSITE_REPOS:
-        return "Documentation", "high", ["Documentation"]
+        return "Documentation and Website", "high", ["Documentation and Website"]
 
     label_names = {l['name'].lower() for l in labels}
     meaningful = {
@@ -370,7 +370,7 @@ def main():
                         help="Default GitHub repo for bare PR numbers. Defaults to flutter/flutter.")
     parser.add_argument("--category", action="append", default=[], metavar="PR=CATEGORY",
                         help="Override the computed category for a PR, e.g. --category 192649='Tooling & Developer Experience' "
-                             "or --category flutter/website#13925='Documentation'. Repeatable.")
+                             "or --category flutter/website#13925='Documentation and Website'. Repeatable.")
     args = parser.parse_args()
     
     now = datetime.datetime.now(timezone.utc).date()
@@ -396,7 +396,7 @@ def main():
         "iOS Platform": [],
         "Desktop Platforms": [],
         "Tooling & Developer Experience": [],
-        "Documentation": []
+        "Documentation and Website": []
     }
 
     # Parse --category overrides.

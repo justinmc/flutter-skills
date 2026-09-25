@@ -21,7 +21,7 @@ This skill implements the comprehensive process for generating the weekly notabl
 
 ### 2. Selection & Automated Information Retrieval
 - **Semantic Selection**: From the candidate commits across all three repositories, select ~15–20 notable PRs based on the Selection Rubric.
-- **Automated Script Processing**: Run the automated Python generator script, passing the selected PR specs as arguments. The script automatically fetches commit counts for `flutter/flutter`, `flutter/website`, and `dart-lang/site-www`, retrieves PR details from the appropriate repo, deduplicates human reviewers, extracts co-authors and visual media, assigns categories (placing website PRs into `Documentation`), and runs first-time contributor dual-checks across the repositories:
+- **Automated Script Processing**: Run the automated Python generator script, passing the selected PR specs as arguments. The script automatically fetches commit counts for `flutter/flutter`, `flutter/website`, and `dart-lang/site-www`, retrieves PR details from the appropriate repo, deduplicates human reviewers, extracts co-authors and visual media, assigns categories (placing website PRs into `Documentation and Website`), and runs first-time contributor dual-checks across the repositories:
   ```bash
   python3 <skill_dir>/scripts/generate_notable_report.py <PR_1> <PR_2> flutter/website#<PR_3> dart-lang/site-www#<PR_4> ...
   ```
@@ -30,7 +30,7 @@ This skill implements the comprehensive process for generating the weekly notabl
   - `--since "7 days ago"`: the range used for the local `flutter/flutter` commit count.
   - `--ref upstream/master`: the git ref used for the `flutter/flutter` commit count and author history. Defaults to `upstream/master`; the script warns and falls back to `HEAD` if the ref does not exist.
   - `--repo flutter/flutter`: default GitHub repo for bare PR numbers.
-  - `--category <PR_SPEC>='<Category>'`: override the computed category for a PR (e.g. `--category 192649='Tooling & Developer Experience'` or `--category flutter/website#13925='Documentation'`). Repeatable.
+  - `--category <PR_SPEC>='<Category>'`: override the computed category for a PR (e.g. `--category 192649='Tooling & Developer Experience'` or `--category flutter/website#13925='Documentation and Website'`). Repeatable.
 
 ### 3. Drafting & Refining the Report
 - The script prints a fully structured Markdown report to stdout.
@@ -42,7 +42,7 @@ This skill implements the comprehensive process for generating the weekly notabl
 - **Verify Attributions**: Double-check that the generated author and reviewer attributions (including any co-authors) look correct in the file.
 
 ### 4. Review Categorization
-- Review the `⚠️  REVIEW CATEGORIZATION` block on stderr. Category assignment is label-based and only a heuristic (PRs from `flutter/website` and `dart-lang/site-www` are automatically categorized under `Documentation`), so the script flags PRs whose labels are ambiguous (multiple competing areas) or repo-wide (e.g. a mass reformat touching every label).
+- Review the `⚠️  REVIEW CATEGORIZATION` block on stderr. Category assignment is label-based and only a heuristic (PRs from `flutter/website` and `dart-lang/site-www` are automatically categorized under `Documentation and Website`), so the script flags PRs whose labels are ambiguous (multiple competing areas) or repo-wide (e.g. a mass reformat touching every label).
 - For each flagged PR, decide the right section and either re-run with `--category <PR_SPEC>='<Category>'` or move the entry by hand in the draft.
 
 ### 5. Validation & Commit
