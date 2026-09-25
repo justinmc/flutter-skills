@@ -47,13 +47,22 @@ def fetch_pr_info(pr_url):
     # 5. Files
     files_resp = requests.get(f"{api_base}/pulls/{pr_number}/files", headers=headers)
     files = files_resp.json() if files_resp.status_code == 200 else []
+
+    # 6. Check Runs (CI status)
+    head_sha = (pr_data.get("head") or {}).get("sha")
+    check_runs = []
+    if head_sha:
+        cr_resp = requests.get(f"{api_base}/commits/{head_sha}/check-runs?per_page=100", headers=headers)
+        if cr_resp.status_code == 200:
+            check_runs = cr_resp.json().get("check_runs", [])
     
     combined_data = {
         "pr": pr_data,
         "comments": comments,
         "review_comments": review_comments,
         "reviews": reviews,
-        "files": files
+        "files": files,
+        "check_runs": check_runs
     }
     
     # Create tmp dir if not exists
