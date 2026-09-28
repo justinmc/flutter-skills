@@ -1,9 +1,9 @@
 ---
-name: personal-framework-release-blog
+name: flutter-framework-release-blog
 description: Drafts the "Framework" section of the Flutter release blog. Use when preparing release announcements to analyze commits, verify PR inclusion (including reverts/relands), and group changes into thematic narratives like Material/Cupertino updates, Web, and Accessibility.
 ---
 
-# Personal Framework Release Blog
+# Flutter Framework Release Blog
 
 This skill guides the process of drafting the "What's New in the Framework" section for a Flutter release blog post. It focuses on creating a narrative of evolution rather than a simple list of changes.
 
