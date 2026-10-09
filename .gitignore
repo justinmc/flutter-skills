@@ -3,3 +3,4 @@ flutter-triage/output
 tmp/
 scratch/
 flutter-notable-changes/outputs/
+__pycache__/
