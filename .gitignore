@@ -2,3 +2,4 @@ flutter-triage/output
 .DS_Store
 tmp/
 scratch/
+flutter-notable-changes/outputs/

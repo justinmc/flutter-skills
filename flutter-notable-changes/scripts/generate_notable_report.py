@@ -1,10 +1,14 @@
 import argparse
 import datetime
 import json
+import os
 import re
 import subprocess
 import sys
 from datetime import timezone
+
+SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+OUTPUTS_DIR = os.path.join(SKILL_DIR, "outputs")
 
 def run_command(cmd, cwd=None):
     try:
@@ -260,6 +264,14 @@ def extract_co_authors(body, commits):
                 
     return co_authors
 
+MAX_IMAGE_HEIGHT_PX = 300
+
+def format_image(url):
+    # Markdown image syntax cannot constrain size, so emit an HTML <img> tag
+    # whose height is capped at MAX_IMAGE_HEIGHT_PX.
+    return (f'<img src="{url}" alt="Visual Demonstration" '
+            f'style="max-height: {MAX_IMAGE_HEIGHT_PX}px; max-width: 100%;">')
+
 def extract_media(body):
     media_elements = []
     if not body: return media_elements
@@ -268,13 +280,14 @@ def extract_media(body):
     # Allows standard image extensions OR user-attachments/assets or assets URLs
     md_imgs = re.findall(r'!\[[^\]]*\]\(((?:https?://[^\)]+\.(?:png|jpg|jpeg|gif|webp))|(?:https?://github\.com/(?:user-attachments/assets|assets)/[a-f0-9-]+))\)', body)
     for img in md_imgs:
-        media_elements.append(f"![Visual Demonstration]({img})")
+        if format_image(img) not in media_elements:
+            media_elements.append(format_image(img))
         
     # 2. Match HTML images: <img ... src="url" ...>
     html_imgs = re.findall(r'<img\s+[^>]*src=["\']((?:https?://[^"\']+\.(?:png|jpg|jpeg|gif|webp))|(?:https?://github\.com/(?:user-attachments/assets|assets)/[a-f0-9-]+))["\']', body, re.IGNORECASE)
     for img in html_imgs:
-        if f"![Visual Demonstration]({img})" not in media_elements:
-            media_elements.append(f"![Visual Demonstration]({img})")
+        if format_image(img) not in media_elements:
+            media_elements.append(format_image(img))
         
     # 3. Match HTML videos: <video ... src="url" ...>
     video_urls = re.findall(r'<video\s+[^>]*src=["\']((?:https?://[^"\']+\.(?:mp4|mov|webm))|(?:https?://github\.com/(?:user-attachments/assets|assets)/[a-f0-9-]+))["\']', body, re.IGNORECASE)
@@ -371,6 +384,9 @@ def main():
     parser.add_argument("--category", action="append", default=[], metavar="PR=CATEGORY",
                         help="Override the computed category for a PR, e.g. --category 192649='Tooling & Developer Experience' "
                              "or --category flutter/website#13925='Documentation and Website'. Repeatable.")
+    parser.add_argument("--output", "-o", type=str,
+                        help="Path to write the report to. Defaults to "
+                             "<skill_dir>/outputs/notable_changes_<END_DATE>.md. Use '-' to print to stdout.")
     args = parser.parse_args()
     
     now = datetime.datetime.now(timezone.utc).date()
@@ -635,8 +651,19 @@ def main():
             report.append(f"- [{c['name']}](https://github.com/{c['login']}), for [{c['pr_ref']}]({c['pr_url']}), which resolved: **{c['title']}**.")
         report.append("")
         
-    # Print the report to stdout
-    print('\n'.join(report))
+    # Write the report to the output file (or stdout if requested).
+    report_text = '\n'.join(report)
+    if args.output == '-':
+        print(report_text)
+    else:
+        if args.output:
+            output_path = os.path.abspath(args.output)
+        else:
+            output_path = os.path.join(OUTPUTS_DIR, f"notable_changes_{end_date.isoformat()}.md")
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(report_text + '\n')
+        print(f"Report written to: {output_path}", file=sys.stderr)
 
     # Flag categorizations the agent should review manually.
     if low_confidence_categories:

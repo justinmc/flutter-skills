@@ -31,14 +31,16 @@ This skill implements the comprehensive process for generating the weekly notabl
   - `--ref upstream/master`: the git ref used for the `flutter/flutter` commit count and author history. Defaults to `upstream/master`; the script warns and falls back to `HEAD` if the ref does not exist.
   - `--repo flutter/flutter`: default GitHub repo for bare PR numbers.
   - `--category <PR_SPEC>='<Category>'`: override the computed category for a PR (e.g. `--category 192649='Tooling & Developer Experience'` or `--category flutter/website#13925='Documentation and Website'`). Repeatable.
+  - `--output <PATH>` / `-o <PATH>`: where to write the report. Defaults to `<skill_dir>/outputs/notable_changes_<END_DATE>.md`. Pass `-` to print to stdout instead.
 
 ### 3. Drafting & Refining the Report
-- The script prints a fully structured Markdown report to stdout.
-- Redirect it to the target report file:
+- The script writes a fully structured Markdown report to `<skill_dir>/outputs/notable_changes_<END_DATE>.md` (the `outputs/` directory is created automatically and is gitignored) and prints the path on stderr:
   ```bash
-  python3 <skill_dir>/scripts/generate_notable_report.py <PR_SPECS> > notable_changes_YYYY-MM-DD.md
+  python3 <skill_dir>/scripts/generate_notable_report.py <PR_SPECS>
   ```
+- Always keep the final report in `<skill_dir>/outputs/`. Do not write it elsewhere in the repository.
 - **Fine-Tuning Descriptions**: Open the created draft and write highly engaging, 1-2 sentence description bullets explaining the benefit/impact of each change, ending with 1-2 relevant emojis.
+- **Image Size Limit**: Every image in the report must be no more than 300px tall. The script emits images as `<img src="URL" alt="..." style="max-height: 300px; max-width: 100%;">`. Any image you add or edit by hand must use the same form; never use plain `![alt](url)` syntax, which cannot constrain size.
 - **Verify Attributions**: Double-check that the generated author and reviewer attributions (including any co-authors) look correct in the file.
 
 ### 4. Review Categorization
