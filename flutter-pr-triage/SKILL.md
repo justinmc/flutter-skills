@@ -1,6 +1,6 @@
 ---
 name: flutter-pr-triage
-description: Use this skill gather triage information about a single PR.
+description: Use this skill to gather triage information about a single PR.
 ---
 
 # Flutter PR Triage
