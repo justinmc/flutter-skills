@@ -1,0 +1,55 @@
+{
+  "_comment": "Configuration for the flutter-attention skill. Edit to taste.",
+  "team": [
+    "chunhtai",
+    "hannah-hyj",
+    "victorsanni",
+    "renzo-olivares"
+  ],
+  "googlers": [],
+  "not_googlers": [],
+  "orgs": [
+    "flutter"
+  ],
+  "repos_exclude": [],
+  "customer_label_prefix": "customer:",
+  "customer_labels_ignored": [
+    "customer: crowd"
+  ],
+  "bots": [
+    "gemini-code-assist",
+    "fluttergithubbot",
+    "engine-flutter-autoroll",
+    "skia-flutter-autoroll",
+    "dependabot",
+    "github-actions",
+    "auto-submit",
+    "google-cla",
+    "flutter-dashboard"
+  ],
+  "mention_lookback_days": 30,
+  "max_results_per_query": 150,
+  "size_thresholds": {
+    "small_weighted_lines": 60,
+    "large_weighted_lines": 300,
+    "large_files": 15,
+    "quick_delta_lines": 30
+  },
+  "test_file_weight": 0.3,
+  "ignored_path_patterns": [
+    "\\.png$",
+    "\\.jpg$",
+    "goldens/",
+    "\\.g\\.dart$",
+    "pubspec\\.lock$",
+    "CHANGELOG\\.md$"
+  ],
+  "ci_ignored_checks": [
+    "tree-status",
+    "Awaiting CICD label",
+    "Check Code Freeze",
+    "triage",
+    "Merge Queue Guard"
+  ],
+  "top_n": 25
+}
