@@ -35,9 +35,9 @@ def main():
         print(f"Processing {url}")
         # Fetch data
         subprocess.run([sys.executable, 'fetch_pr_data.py', url], cwd=triage_dir, check=True, stdout=subprocess.DEVNULL)
-        pr_num = url.split('/')[-1]
-        in_json = f'tmp/flutter.flutter.{pr_num}.json'
-        out_md = f'output/flutter_flutter_{pr_num}.md'
+        org, repo, _, pr_num = url.rstrip('/').split('/')[-4:]
+        in_json = f'tmp/{org}.{repo}.{pr_num}.json'
+        out_md = f'output/{org}_{repo}_{pr_num}.md'
         subprocess.run([sys.executable, 'generate_pr_report.py', in_json, out_md], cwd=triage_dir, check=True, stdout=subprocess.DEVNULL)
         return pr_num
 

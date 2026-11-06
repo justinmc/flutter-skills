@@ -55,8 +55,8 @@ def get_reviews(pr_url):
         print(f"Error fetching reviews from {reviews_url}: {e}", file=sys.stderr)
     return reviews
 
-def get_check_runs(head_sha):
-    check_runs_url = f"https://api.github.com/repos/flutter/flutter/commits/{head_sha}/check-runs"
+def get_check_runs(head_sha, repo="flutter/flutter"):
+    check_runs_url = f"https://api.github.com/repos/{repo}/commits/{head_sha}/check-runs"
     try:
         response = requests.get(check_runs_url, headers=HEADERS)
         response.raise_for_status()
@@ -141,7 +141,8 @@ def parse_github_json(file_path):
                 if pr_data.get('mergeable_state') in ['blocked', 'unstable']:
                     head_sha = pr_data.get('head', {}).get('sha')
                     if head_sha:
-                        check_runs = get_check_runs(head_sha)
+                        repo_name = pr_data.get('base', {}).get('repo', {}).get('full_name') or "flutter/flutter"
+                        check_runs = get_check_runs(head_sha, repo_name)
                 triage_status = determine_pr_status(pr_data, reviews, check_runs)
 
         entries.append({

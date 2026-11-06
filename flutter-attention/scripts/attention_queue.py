@@ -461,7 +461,8 @@ class Ranker:
     def finish(self, item):
         item["effort"] = self.effort(item["action"], item.get("size", 0), item.get("delta"),
                                      item.get("files"), item["repo"], item.get("verdict"))
-        if item["kind"] == "PR" and item.get("tier") == 4 and item.get("author_association") == "MEMBER":
+        if (item["kind"] == "PR" and item.get("tier") == 4 and item.get("author_association") == "MEMBER"
+                and (item.get("author") or "").lower() not in self.not_googlers):
             item["possible_googler"] = True
         return item
 

@@ -13,7 +13,11 @@ query_dict = dict(p.parse_qsl(parsed_url.query))
 q = query_dict.get('q', '')
 
 api_url = "https://api.github.com/search/issues"
-params = {'q': 'repo:flutter/flutter ' + q, 'per_page': 100}
+# Search the repo the list URL points at (e.g. flutter/core-packages), not
+# always flutter/flutter.
+path_parts = [x for x in parsed_url.path.split('/') if x]
+repo = '/'.join(path_parts[:2]) if len(path_parts) >= 2 else 'flutter/flutter'
+params = {'q': f'repo:{repo} ' + q, 'per_page': 100}
 
 token = os.environ.get("GITHUB_TOKEN")
 headers = {"Accept": "application/vnd.github.v3+json"}
@@ -21,6 +25,9 @@ if token:
     headers["Authorization"] = f"token {token}"
 
 os.makedirs(f"tmp/{list_name}", exist_ok=True)
+for stale in os.listdir(f"tmp/{list_name}"):
+    if stale.startswith("page_") and stale.endswith(".json"):
+        os.remove(f"tmp/{list_name}/{stale}")
 page = 1
 
 while api_url:

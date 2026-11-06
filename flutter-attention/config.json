@@ -6,8 +6,17 @@
     "victorsanni",
     "renzo-olivares"
   ],
-  "googlers": [],
-  "not_googlers": [],
+  "googlers": [
+    "longcatislooong"
+  ],
+  "not_googlers": [
+    "mairramer",
+    "mattkae",
+    "mbcorona",
+    "rkishan516",
+    "saurabh-mirajkar",
+    "yeungkc"
+  ],
   "orgs": [
     "flutter"
   ],

@@ -19,10 +19,16 @@ def get_status_emoji(status):
         return "🟢 " + status
     return status
 
-def generate_summary_and_action_items(context, triage_status, is_pr, pr_number=None):
+def report_slug(html_url):
+    """'https://github.com/flutter/core-packages/pull/38' -> 'flutter_core-packages_38'."""
+    org, repo, _, number = html_url.rstrip('/').split('/')[-4:]
+    return f"{org}_{repo}_{number}"
+
+
+def generate_summary_and_action_items(context, triage_status, is_pr, pr_number=None, html_url=None):
     if is_pr and pr_number:
         # Load the flutter-pr-triage output file
-        report_path = f"../flutter-pr-triage/output/flutter_flutter_{pr_number}.md"
+        report_path = f"../flutter-pr-triage/output/{report_slug(html_url)}.md"
         summary = "No summary available."
         action_items = "No action items available."
         actual_triage = triage_status
@@ -177,7 +183,7 @@ def main():
                     if is_pr and html_url:
                         pr_number = html_url.split('/')[-1]
 
-                    summary, action_items, actual_triage, next_step_cat, cicd_label = generate_summary_and_action_items(context, triage_status, is_pr, pr_number)
+                    summary, action_items, actual_triage, next_step_cat, cicd_label = generate_summary_and_action_items(context, triage_status, is_pr, pr_number, html_url)
                     
                     cat = determine_category(is_pr, actual_triage, action_items, next_step_cat)
                     
@@ -194,22 +200,31 @@ def main():
                         item_md += f"- **Triage Status**: {actual_triage}\n"
                         item_md += f"- **CICD Label**: {cicd_label}\n"
                         workspace = "/usr/local/google/home/jmccandless/Projects/flutter-skills"
-                        item_md += f"- **Full PR Report**: [flutter_flutter_{pr_number}.md](file://{workspace}/flutter-pr-triage/output/flutter_flutter_{pr_number}.md)\n"
+                        item_md += f"- **Full PR Report**: [{report_slug(html_url)}.md](file://{workspace}/flutter-pr-triage/output/{report_slug(html_url)}.md)\n"
                     item_md += f"- **Summary**: {summary}\n"
                     item_md += f"- **Action Items**: {action_items}\n\n"
                     
                     target_cat = cat if cat in categorized_items else "Issues"
                     categorized_items[target_cat].append(item_md)
                     if is_pr and pr_number:
-                        categorized_pr_numbers[target_cat].append(pr_number)
+                        categorized_pr_numbers[target_cat].append(html_url)
 
     for cat in categories:
         if categorized_items[cat]:
             count = len(categorized_items[cat])
-            pr_nums = categorized_pr_numbers[cat]
-            if pr_nums:
-                gh_query_url = f"https://github.com/flutter/flutter/pulls?q={'+'.join(pr_nums)}"
-                markdown += f"## [{cat} ({count})]({gh_query_url})\n\n"
+            pr_urls = categorized_pr_numbers[cat]
+            if pr_urls:
+                # One link per repo, since a GitHub PR list URL is per repo.
+                by_repo = {}
+                for u in pr_urls:
+                    org, repo, _, number = u.rstrip('/').split('/')[-4:]
+                    by_repo.setdefault(f"{org}/{repo}", []).append(number)
+                links = [(r, f"https://github.com/{r}/pulls?q={'+'.join(nums)}") for r, nums in by_repo.items()]
+                if len(links) == 1:
+                    markdown += f"## [{cat} ({count})]({links[0][1]})\n\n"
+                else:
+                    extra = ", ".join(f"[{r}]({u})" for r, u in links)
+                    markdown += f"## {cat} ({count}): {extra}\n\n"
             else:
                 markdown += f"## {cat} ({count})\n\n"
             for md in categorized_items[cat]:
