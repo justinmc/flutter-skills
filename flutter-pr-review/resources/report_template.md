@@ -35,6 +35,12 @@ needs to know about why the code looks the way it does today.>
 which threads are resolved, which are still open, and any disagreements.
 Omit bot noise.>
 
+### Local verification
+<Results of running the PR's new/modified tests with and without the production
+changes (on master/main), and of running an example or reproduction app locally.
+State which tests failed without the fix (and how), which passed, what the
+example app confirmed, and anything that could not be verified locally and why.>
+
 ## Findings
 
 Order by severity. Each finding links to the exact line(s) in the PR's "Files

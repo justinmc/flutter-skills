@@ -26,6 +26,9 @@ write the report.
 1.  Python 3 with the `requests` library (`pip install requests`).
 2.  The `GITHUB_TOKEN` environment variable set to a GitHub token that can read
     public repositories. The `gh` CLI is helpful but optional.
+3.  Optional (for local verification): a local checkout of the target repository
+    (e.g. `flutter/flutter` or `flutter/packages`) and a runnable `flutter`
+    target (such as Linux desktop or Chrome).
 
 All paths below are relative to this skill's directory (the directory
 containing this file). Run scripts from this directory so that `tmp/` and
@@ -95,7 +98,8 @@ correctness, so read the surrounding code too:
   without disturbing their work, e.g.
   `git fetch upstream pull/<number>/head:pr-<number>` and read files with
   `git show pr-<number>:<path>`. Do not check out branches, stash, or modify the
-  user's working tree without asking.
+  user's working tree without asking (use a temporary `git worktree` in step 9
+  when running tests or an example app).
 * Otherwise, read files at the PR's head SHA (listed in the digest) from
   `https://raw.githubusercontent.com/<head repo>/<head sha>/<path>`, or with
   `gh api`.
@@ -169,9 +173,8 @@ and [Tree Hygiene](https://github.com/flutter/flutter/blob/master/docs/contribut
 
 * Is there a test for every behavior change, and a regression test that fails
   without the fix? If not, does the PR qualify for a test exemption?
-* Do the tests actually test the change, or would they pass without it? If you
-  have a local checkout and the user agrees, you can verify this by running the
-  test with and without the lib changes.
+* Do the tests actually test the change, or would they pass without it? Verify
+  this locally in step 9 whenever possible, and check by inspection if not.
 * Testing best practices: prefer `pump(duration)` to `pumpAndSettle`, using
   `TransitionDurationObserver` for page transitions; prefer headless checks
   over goldens and never capture goldens mid-animation; omit `variant` unless
@@ -195,13 +198,75 @@ features. For performance, look for work added to `build`, `layout`, or `paint`
 hot paths, unnecessary rebuilds or `InheritedWidget` dependencies, and new
 allocations per frame.
 
-### 9. Check CI
+### 9. Verify locally
+
+Whenever a local checkout of the repository is available (ask the user for its
+path if you can't find one), verify the PR's tests and runtime behavior locally.
+If no local checkout is available, or if the PR is non-executable (e.g. an RFC
+or docs-only change), skip the inapplicable parts and state why in the report.
+
+**Safety and isolation:**
+* Read the entire `pr.diff` (step 4) *before* running any code from the PR. If
+  an external contributor's PR modifies build scripts, native hooks, tool
+  executables, or anything suspicious, ask the user before executing it.
+* Never modify the user's working tree. Fetch the PR and default branch
+  (`master` in `flutter/flutter`, `main` in `flutter/packages`) and create a
+  detached `git worktree` under `tmp/<org>.<repo>.<number>/worktree`, then
+  remove it (`git worktree remove --force ...`) when finished.
+* In `flutter/flutter`, if the PR's `bin/internal/engine.version` lags behind
+  `master` (and the PR does not touch `engine/`), rebasing the detached worktree
+  onto `upstream/master` lets tests and apps reuse current engine artifacts. PRs
+  that modify `engine/` require a local engine build; skip local execution if
+  one isn't built and note that in the report.
+
+**Run new and modified tests on `master` (without the fix):**
+1. Run the touched test file(s) at the PR commit first to confirm they pass (and
+   run any targeted repro tests for candidate bugs you spotted in step 8).
+2. Run those new and modified tests without the PR's production changes—either
+   on `master` (or `main`) with only the test diff applied, or at the PR commit
+   with non-test files reverted to the merge-base (prefer reverting non-test
+   files when `master` has drifted or when tests depend on sibling test helpers
+   in the PR).
+3. Interpret the outcome for each test:
+   * **Fails an assertion**: check *which* assertion failed. Confirm it fails on
+     the expectation guarding the reported bug, not an earlier unrelated error.
+   * **Fails to compile**: expected when the PR introduces new public APIs,
+     parameters, or types that don't exist on `master`. A compile error alone
+     does *not* prove the test exercises the new behavior—where practical, stub
+     the new API as a no-op in `lib/` so the test compiles and confirm its
+     assertions fail, or verify the assertions carefully by inspection.
+   * **Passes without the fix**: flag this as a finding unless the test is
+     intentionally a refactor or characterization guard for existing behavior
+     (distinguish regression tests from guard tests in the report).
+
+**Run an example app:**
+* When the PR changes observable runtime or UI behavior on a platform runnable
+  from this machine (e.g. `-d linux` or `-d chrome`), build and run an example
+  app against the worktree (using `<worktree>/bin/flutter` for `flutter/flutter`
+  so the modified framework is used, or the package's `example/` for
+  `flutter/packages`) to verify the change actually does what it claims:
+  * Prefer an example added or modified by the PR (such as under
+    `examples/api/`), or create a minimal app under
+    `tmp/<org>.<repo>.<number>/example_app/` from the linked issue's
+    reproduction steps. Compare against `master` if behavior is subtle.
+  * `flutter run` is interactive and does not exit on its own: run it as a
+    managed background task (or drive the scenario via `integration_test` / VM
+    service), exercise the relevant code path where tooling permits, check
+    stdout/stderr for `FlutterError`s, assertions, or layout/rendering errors,
+    and terminate the process before finishing.
+  * If confirming the fix requires human visual or interactive judgment (e.g.
+    animation feel, visual fidelity, trackpad/IME feel) or an unavailable OS /
+    device (iOS, macOS, Windows, Android), be explicit about what automated
+    checks did and did not verify, and include a minimal reproduction or launch
+    command in the report (or offer to leave the app running) for the user.
+
+### 10. Check CI
 
 Summarize the check runs from the digest. For failures, determine whether they
 appear to be caused by the PR or are infrastructure/flaky/maintainer-owned
 (e.g. Google testing). Don't speculate beyond what the data shows.
 
-### 10. Write the report
+### 11. Write the report
 
 Write the report to `output/<org>_<repo>_<number>_review.md` (e.g.
 `output/flutter_flutter_12345_review.md`), following
