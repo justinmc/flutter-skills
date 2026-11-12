@@ -123,6 +123,9 @@ def is_bot_account(author_dict=None, login=None, name=None, email=None):
 REPO_ALIASES = {
     "flutter": "flutter/flutter",
     "flutter/flutter": "flutter/flutter",
+    "packages": "flutter/packages",
+    "flutter-packages": "flutter/packages",
+    "flutter/packages": "flutter/packages",
     "website": "flutter/website",
     "flutter-website": "flutter/website",
     "flutter/website": "flutter/website",
@@ -132,7 +135,7 @@ REPO_ALIASES = {
 }
 
 WEBSITE_REPOS = {"flutter/website", "dart-lang/site-www"}
-ALL_REPOS = ("flutter/flutter", "flutter/website", "dart-lang/site-www")
+ALL_REPOS = ("flutter/flutter", "flutter/packages", "flutter/website", "dart-lang/site-www")
 
 def parse_pr_spec(spec_str, default_repo="flutter/flutter"):
     spec = spec_str.strip()
@@ -217,9 +220,10 @@ def check_first_time_contributor(author_login, author_name, pr_commits, start_da
                     is_first_git = False
                     break
 
-    # If the PR comes from a remote website repo, also check commits via GitHub REST API by login/email
+    # If the PR comes from a remote repo (e.g. flutter/packages or websites),
+    # also check commits via GitHub REST API by login/email.
+    until_iso = f"{start_date.isoformat()}T00:00:00Z"
     if is_first_git and repo != "flutter/flutter":
-        until_iso = f"{start_date.isoformat()}T00:00:00Z"
         for identifier in ({author_login} | emails):
             if not identifier:
                 continue
@@ -233,11 +237,23 @@ def check_first_time_contributor(author_login, author_name, pr_commits, start_da
     start_date_str = start_date.strftime('%Y-%m-%d')
     repos_to_check = list(dict.fromkeys([*ALL_REPOS, repo]))
     repo_flags = " ".join(f'--repo "{r}"' for r in repos_to_check)
-    gh_search_cmd = f'gh search commits --author-date="<{start_date_str}" --author="{author_login}" {repo_flags} --limit 1'
-    gh_res = run_command(gh_search_cmd)
-    if gh_res:
-        is_first_gh = False
-        
+    gh_search_cmd = f'gh search commits --author-date="<{start_date_str}" --author="{author_login}" {repo_flags} --limit 1 --json sha'
+    search_proc = subprocess.run(gh_search_cmd, shell=True, capture_output=True, text=True)
+    if search_proc.returncode == 0:
+        try:
+            if json.loads(search_proc.stdout.strip() or "[]"):
+                is_first_gh = False
+        except json.JSONDecodeError:
+            pass
+    else:
+        print(f"Warning: gh search commits failed for {author_login}; falling back to per-repo REST checks.",
+              file=sys.stderr)
+        for r in repos_to_check:
+            api_res = run_command(f'gh api "repos/{r}/commits?author={author_login}&until={until_iso}&per_page=1" --jq "length"')
+            if api_res and api_res.isdigit() and int(api_res) > 0:
+                is_first_gh = False
+                break
+
     return is_first_git and is_first_gh
 
 
@@ -304,34 +320,62 @@ def extract_media(body):
 
 # Labels that carry no signal about what area a PR touches.
 NOISE_LABELS = {
-    'cicd',
-    'emergency',
-    'override code freeze',
-    'will affect goldens',
-    'waiting for tree to go green',
+    'a: leak tracking',
     'autosubmit',
+    'cicd',
+    'dependencies',
+    'emergency',
+    'java',
+    'missing-tests',
+    'needs tests',
+    'override code freeze',
     'revert',
+    'revert of',
+    'team',
+    'test-exempt',
+    'waiting for response',
+    'waiting for stable update',
+    'waiting for tree to go green',
+    'will affect goldens',
+    'work in progress (do not review)',
     'work in progress (wip)',
 }
 
-NOISE_PREFIXES = ('team-', 'd: ', 'c: ', 'l:', 'p: first party', 'r: ')
+NOISE_PREFIXES = (
+    'team-',
+    'team:',
+    'd: ',
+    'c: ',
+    'l:',
+    'p: first party',
+    'r: ',
+    'cla: ',
+    'override:',
+    'triage-',
+    'federated:',
+    'post-release-',
+)
 
 # Ordered by precedence: the first category with a matching label wins.
 # Matching is on exact label names, since Flutter labels like "a: tests" or
 # "platform-fuchsia" would otherwise be caught by substring matches.
 CATEGORY_LABELS = [
     ("Accessibility", {'a: accessibility'}),
-    ("Material Design", {'f: material design', 'p: material_ui'}),
-    ("Cupertino (iOS-style)", {'f: cupertino', 'p: cupertino_ui'}),
-    ("Web Platform", {'platform-web', 'e: web_canvaskit', 'e: web_html', 'e: skwasm'}),
-    ("Android Platform", {'platform-android'}),
-    ("iOS Platform", {'platform-ios'}),
-    ("Desktop Platforms", {'platform-linux', 'platform-macos', 'platform-windows', 'a: desktop'}),
-    ("Tooling & Developer Experience", {'tool', 'a: build', 't: gradle', 't: xcode', 't: flutter driver'}),
-    ("Engine & Performance", {'engine', 'e: impeller', 'flutter-gpu'}),
-    ("Framework & Core Libraries", {'framework'}),
+    ("Material Design", {'f: material design', 'p: material_ui', 'p: flutter_adaptive_scaffold'}),
+    ("Cupertino (iOS-style)", {'f: cupertino', 'p: cupertino_ui', 'p: cupertino_icons'}),
+    ("Web Platform", {'platform-web', 'e: web_canvaskit', 'e: web_html', 'e: skwasm', 'p: pointer_interceptor', 'p: google_adsense', 'p: google_identity_services_web'}),
+    ("Android Platform", {'platform-android', 'p: flutter_plugin_android_lifecycle'}),
+    ("iOS Platform", {'platform-ios', 'p: ios_platform_images'}),
+    ("Desktop Platforms", {'platform-linux', 'platform-macos', 'platform-windows', 'a: desktop', 'p: xdg_directories'}),
+    ("Tooling & Developer Experience", {'tool', 'a: build', 't: gradle', 't: xcode', 't: flutter driver', 'p: pigeon', 'p: flutter_lints', 'p: flutter_migrate', 'p: web_benchmarks', 'p: espresso', 'p: go_router_builder', 'p: plugin_platform_interface'}),
+    ("Engine & Performance", {'engine', 'e: impeller', 'flutter-gpu', 'p: flutter_shaders', 'p: vector_graphics', 'p: flutter_svg'}),
+    ("Framework & Core Libraries", {'framework', 'p: animations', 'p: two_dimensional_scrollables', 'p: dynamic_layouts', 'p: rfw'}),
+    ("Packages & Plugins", set()),
     ("Documentation and Website", {'documentation', 'a:ite'}),
 ]
+
+PLATFORM_CATEGORIES = {"Web Platform", "Android Platform", "iOS Platform", "Desktop Platforms"}
+SPECIFIC_PACKAGE_LABELS = set().union(*(lbls for _, lbls in CATEGORY_LABELS))
 
 DEFAULT_CATEGORY = "Framework & Core Libraries"
 
@@ -352,13 +396,39 @@ def categorize_pr(labels, repo="flutter/flutter"):
         if name not in NOISE_LABELS and not name.startswith(NOISE_PREFIXES)
     }
 
-    candidates = [cat for cat, cat_labels in CATEGORY_LABELS if meaningful & cat_labels]
-    category = candidates[0] if candidates else DEFAULT_CATEGORY
+    has_generic_package_label = any(
+        name.startswith('p: ') and name not in SPECIFIC_PACKAGE_LABELS
+        for name in meaningful
+    )
+
+    candidates = []
+    for cat, cat_labels in CATEGORY_LABELS:
+        if cat == "Packages & Plugins":
+            if has_generic_package_label:
+                candidates.append(cat)
+        elif meaningful & cat_labels:
+            candidates.append(cat)
+
+    fallback = "Packages & Plugins" if repo == "flutter/packages" else DEFAULT_CATEGORY
+    matched_platforms = [c for c in candidates if c in PLATFORM_CATEGORIES]
+    non_platform = [c for c in candidates if c not in PLATFORM_CATEGORIES]
+
+    # When a PR spans multiple platform categories (common for federated plugins
+    # and Pigeon in flutter/packages), prefer its functional/package category
+    # over whichever platform happens to be listed first, and flag for review.
+    if len(matched_platforms) > 1 and non_platform:
+        category = non_platform[0]
+    else:
+        category = candidates[0] if candidates else fallback
 
     confidence = 'high'
     if len(meaningful) > REPO_WIDE_LABEL_THRESHOLD:
         # Repo-wide change: prefer Tooling if it is a tool change, else default.
-        category = "Tooling & Developer Experience" if 'tool' in meaningful else DEFAULT_CATEGORY
+        category = "Tooling & Developer Experience" if 'tool' in meaningful else fallback
+        confidence = 'low'
+    elif len(matched_platforms) > 1:
+        confidence = 'low'
+    elif repo == "flutter/packages" and len(candidates) >= 2:
         confidence = 'low'
     elif len(candidates) >= 3:
         confidence = 'low'
@@ -372,9 +442,9 @@ def categorize_pr(labels, repo="flutter/flutter"):
 def main():
     parser = argparse.ArgumentParser(description="Generate Weekly Notable Changes Report")
     parser.add_argument("pr_specs", nargs="+", type=str,
-                        help="List of PR specs to include (e.g. 192649, flutter/website#13925, dart-lang/site-www#7521)")
+                        help="List of PR specs to include (e.g. 192649, flutter/packages#13419, flutter/website#13925, dart-lang/site-www#7521)")
     parser.add_argument("--since", type=str, default="7 days ago", help="Git since description (for total commits calculation)")
-    parser.add_argument("--start-date", type=str, help="Start date for first-time contributor checks and website commit counts (YYYY-MM-DD). Defaults to 7 days ago.")
+    parser.add_argument("--start-date", type=str, help="Start date for first-time contributor checks and remote repo commit counts (YYYY-MM-DD). Defaults to 7 days ago.")
     parser.add_argument("--end-date", type=str, help="End date of report (YYYY-MM-DD). Defaults to today.")
     parser.add_argument("--ref", type=str, default="upstream/master",
                         help="Git ref to count commits and check author history against. "
@@ -382,7 +452,8 @@ def main():
     parser.add_argument("--repo", type=str, default="flutter/flutter",
                         help="Default GitHub repo for bare PR numbers. Defaults to flutter/flutter.")
     parser.add_argument("--category", action="append", default=[], metavar="PR=CATEGORY",
-                        help="Override the computed category for a PR, e.g. --category 192649='Tooling & Developer Experience' "
+                        help="Override the computed category for a PR, e.g. --category 192649='Tooling & Developer Experience', "
+                             "--category flutter/packages#13617='Packages & Plugins', "
                              "or --category flutter/website#13925='Documentation and Website'. Repeatable.")
     parser.add_argument("--output", "-o", type=str,
                         help="Path to write the report to. Defaults to "
@@ -412,6 +483,7 @@ def main():
         "iOS Platform": [],
         "Desktop Platforms": [],
         "Tooling & Developer Experience": [],
+        "Packages & Plugins": [],
         "Documentation and Website": []
     }
 
@@ -441,6 +513,7 @@ def main():
         ref = "HEAD"
 
     total_commits = run_command(f'git log {ref} --since="{args.since}" --oneline | wc -l') or "0"
+    packages_commits = get_remote_commit_count("flutter/packages", start_date, end_date)
     website_commits = get_remote_commit_count("flutter/website", start_date, end_date)
     dart_website_commits = get_remote_commit_count("dart-lang/site-www", start_date, end_date)
 
@@ -588,6 +661,7 @@ def main():
     report.append(f"### {start_formatted} to {end_formatted}\n")
     report.append(
         f"This week, {total_commits} commits landed in the Flutter repository, "
+        f"{packages_commits} in the Flutter packages repository, "
         f"{website_commits} in the Flutter website repository, and "
         f"{dart_website_commits} in the Dart website repository. "
     )

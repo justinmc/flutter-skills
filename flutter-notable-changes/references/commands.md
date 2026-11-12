@@ -1,16 +1,16 @@
 # Commands for Weekly Notable Changes Report
 
-This reference provides the exact commands for each phase of the reporting process across `flutter/flutter`, `flutter/website`, and `dart-lang/site-www`.
+This reference provides the exact commands for each phase of the reporting process across `flutter/flutter`, `flutter/packages`, `flutter/website`, and `dart-lang/site-www`.
 
 ## Phase 1: Data Gathering
-*(See `flutter-fetch-changes` skill for fetching commits across `flutter/flutter`, `flutter/website`, and `dart-lang/site-www`)*
+*(See `flutter-fetch-changes` skill for fetching commits across `flutter/flutter`, `flutter/packages`, `flutter/website`, and `dart-lang/site-www`)*
 
 ## Phase 2: Information Retrieval (DATA INTEGRITY MANDATE)
 **DO NOT rely on bulk output. Query each PR individually.**
-Always pass `--repo <REPO>` (`flutter/flutter`, `flutter/website`, or `dart-lang/site-www`): a local checkout may have many fork remotes or belong to a different repository.
+Always pass `--repo <REPO>` (`flutter/flutter`, `flutter/packages`, `flutter/website`, or `dart-lang/site-www`): a local checkout may have many fork remotes or belong to a different repository.
 ```shell
 # Get author login, human reviewers (all states), title, url, and body
-# Replace <REPO> with flutter/flutter, flutter/website, or dart-lang/site-www
+# Replace <REPO> with flutter/flutter, flutter/packages, flutter/website, or dart-lang/site-www
 gh pr view <PR_NUMBER> --repo <REPO> --json author,reviews,title,url,body \
   --template 'Title: {{.title}}{{"\n"}}Author: {{.author.login}} ({{.author.name}}){{"\n"}}Reviewers: {{range .reviews}}{{if not .author.is_bot}}{{.author.login}} {{end}}{{end}}{{"\n"}}'
 ```
@@ -26,29 +26,31 @@ gh pr view <PR_NUMBER> --repo <REPO> --json body -q ".body"
 ```
 
 ## Phase 3: First-Time Contributor Verification (CRITICAL)
-Query `upstream/master` (not `HEAD`) for `flutter/flutter`, and search across all three repositories on GitHub so prior contributions in any of the repos are detected.
+Query `upstream/master` (not `HEAD`) for `flutter/flutter`, and search across all four repositories on GitHub so prior contributions in any of the repos are detected.
 ```shell
 # Automated check for author's very first commit in local flutter/flutter repository
 git log upstream/master --author="<LOGIN>" --reverse --pretty=format:"%H %ci %s" | head -n 1
 ```
 
 ```shell
-# Secondary check: Are there ANY commits from this login before the start of the week across all three repos?
+# Secondary check: Are there ANY commits from this login before the start of the week across all four repos?
 gh search commits --author-date "<YYYY-MM-DD" --author="<LOGIN>" \
-  --repo "flutter/flutter" --repo "flutter/website" --repo "dart-lang/site-www"
+  --repo "flutter/flutter" --repo "flutter/packages" --repo "flutter/website" --repo "dart-lang/site-www" \
+  --json sha
 ```
 
 ## Phase 4: Review Categorization
-PRs from `flutter/website` and `dart-lang/site-www` are automatically placed into the `Documentation and Website` category. For `flutter/flutter` PRs, categories are derived from GitHub labels, which is a heuristic. The script prints a `REVIEW CATEGORIZATION` block on stderr for PRs whose labels are ambiguous or repo-wide. Override any of them:
+PRs from `flutter/website` and `dart-lang/site-www` are automatically placed into the `Documentation and Website` category. For `flutter/flutter` and `flutter/packages` PRs, categories are derived from GitHub labels (`p: material_ui`, `p: cupertino_ui`, `p: pigeon`, `platform-*`, etc.), which is a heuristic. The script prints a `REVIEW CATEGORIZATION` block on stderr for PRs whose labels are ambiguous, multi-platform, or repo-wide. Override any of them:
 ```shell
 python3 <skill_dir>/scripts/generate_notable_report.py <PR_SPECS> \
   --category 192649='Tooling & Developer Experience' \
+  --category flutter/packages#13617='Packages & Plugins' \
   --category flutter/website#13925='Documentation and Website'
 ```
 Valid categories: `Material Design`, `Cupertino (iOS-style)`, `Accessibility`,
 `Framework & Core Libraries`, `Engine & Performance`, `Web Platform`,
 `Android Platform`, `iOS Platform`, `Desktop Platforms`,
-`Tooling & Developer Experience`, `Documentation and Website`.
+`Tooling & Developer Experience`, `Packages & Plugins`, `Documentation and Website`.
 
 ```shell
 # Inspect a PR's labels directly when deciding a category
