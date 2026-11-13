@@ -280,13 +280,37 @@ def extract_co_authors(body, commits):
                 
     return co_authors
 
-MAX_IMAGE_HEIGHT_PX = 300
+MAX_IMAGE_HEIGHT_PX = 400
 
 def format_image(url):
     # Markdown image syntax cannot constrain size, so emit an HTML <img> tag
     # whose height is capped at MAX_IMAGE_HEIGHT_PX.
     return (f'<img src="{url}" alt="Visual Demonstration" '
             f'style="max-height: {MAX_IMAGE_HEIGHT_PX}px; max-width: 100%;">')
+
+def format_media_lines(media_elements, indent="    "):
+    """Format media elements for a report item, placing 2+ images in a table."""
+    images = [m for m in media_elements if m.startswith('<img ')]
+    others = [m for m in media_elements if not m.startswith('<img ')]
+    lines = []
+
+    if len(images) >= 2:
+        cols = 2 if len(images) in (2, 4) else 3
+        lines.append("")
+        lines.append(f"{indent}| " + " | ".join([""] * cols) + " |")
+        lines.append(f"{indent}| " + " | ".join(["---"] * cols) + " |")
+        for i in range(0, len(images), cols):
+            row = images[i:i + cols]
+            while len(row) < cols:
+                row.append("")
+            lines.append(f"{indent}| " + " | ".join(row) + " |")
+    elif len(images) == 1:
+        lines.append(f"{indent}{images[0]}")
+
+    for med in others:
+        lines.append(f"{indent}{med}")
+
+    return lines
 
 def extract_media(body):
     media_elements = []
@@ -685,8 +709,7 @@ def main():
             report.append("    Detailed impact/benefit description of the change goes here. Use 1-2 relevant emojis. 🚀")
             
             # Embed Media
-            for med in pr['media']:
-                report.append(f"    {med}")
+            report.extend(format_media_lines(pr['media']))
                 
             # Format Attributions
             author_str = ""

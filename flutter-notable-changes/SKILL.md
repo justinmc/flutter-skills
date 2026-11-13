@@ -40,7 +40,7 @@ This skill implements the comprehensive process for generating the weekly notabl
   ```
 - Always keep the final report in `<skill_dir>/outputs/`. Do not write it elsewhere in the repository.
 - **Fine-Tuning Descriptions**: Open the created draft and write highly engaging, 1-2 sentence description bullets explaining the benefit/impact of each change, ending with 1-2 relevant emojis.
-- **Image Size Limit**: Every image in the report must be no more than 300px tall. The script emits images as `<img src="URL" alt="..." style="max-height: 300px; max-width: 100%;">`. Any image you add or edit by hand must use the same form; never use plain `![alt](url)` syntax, which cannot constrain size.
+- **Image Size & Layout**: Every image in the report must be no more than 400px tall. The script emits images as `<img src="URL" alt="..." style="max-height: 400px; max-width: 100%;">` and places 2+ images for a single PR side-by-side in a Markdown table. Any image you add or edit by hand must use the same `<img>` form (never plain `![alt](url)` syntax, which cannot constrain size). If there are multiple images in a row, put them in a Markdown table when side-by-side layout improves readability (or stack wide landscape images if a table makes them too narrow).
 - **Verify Attributions**: Double-check that the generated author and reviewer attributions (including any co-authors) look correct in the file.
 
 ### 4. Review Categorization
